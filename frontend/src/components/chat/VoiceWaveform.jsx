@@ -1,26 +1,26 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 
-const BARS = [8, 12, 9, 16, 11, 7, 14, 10, 13, 8];
+const BARS = [10, 14, 8, 16, 11, 7, 13, 9, 15, 10, 6, 12];
 
 export default function VoiceWaveform({ tone = 'recording' }) {
   const barClass =
     tone === 'recording'
-      ? 'bg-slate-300 dark:bg-surface-500'
-      : 'bg-slate-200 dark:bg-surface-600';
+      ? 'bg-slate-400 dark:bg-surface-300'
+      : 'bg-slate-300 dark:bg-surface-500';
 
   return (
-    <div className="flex h-6 items-center gap-1 overflow-hidden">
+    <div className="flex h-5 items-center gap-[3px] overflow-hidden">
       {BARS.map((height, index) => (
         <motion.span
           key={index}
           className={`w-1 rounded-full ${barClass}`}
           style={{ height }}
-          animate={{ scaleY: tone === 'recording' ? [0.5, 1, 0.65, 0.95, 0.55] : [0.35, 0.55, 0.4] }}
+          animate={{ scaleY: tone === 'recording' ? [0.42, 1, 0.58, 0.92, 0.5] : [0.3, 0.48, 0.35] }}
           transition={{
-            duration: tone === 'recording' ? 0.95 : 1.4,
+            duration: tone === 'recording' ? 0.85 : 1.25,
             repeat: Infinity,
-            delay: index * 0.05,
+            delay: index * 0.04,
             ease: 'easeInOut',
           }}
         />

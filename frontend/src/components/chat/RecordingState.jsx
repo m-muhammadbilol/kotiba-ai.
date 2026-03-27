@@ -17,18 +17,18 @@ export default function RecordingState({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -8 }}
       transition={{ duration: 0.18, ease: 'easeOut' }}
-      className="flex min-h-[40px] items-center gap-2"
+      className="flex min-h-[36px] items-center gap-2"
     >
       {isRecording ? (
         <>
-          <div className="flex min-w-[78px] items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-red-500 shadow-[0_0_0_3px_rgba(239,68,68,0.14)]" />
-            <span className="text-[14px] font-medium tabular-nums text-slate-800 dark:text-surface-100">
+          <div className="flex min-w-[74px] items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-red-500 recording-pulse" />
+            <span className="text-[13px] font-medium tabular-nums text-slate-700 dark:text-surface-100">
               {durationLabel}
             </span>
           </div>
 
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1 rounded-full bg-slate-100/80 px-2.5 py-1.5 dark:bg-surface-800/70">
             <VoiceWaveform tone="recording" />
           </div>
 
@@ -37,9 +37,9 @@ export default function RecordingState({
             onClick={onCancel}
             whileTap={{ scale: 0.94 }}
             aria-label="Yozishni bekor qilish"
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-colors hover:bg-slate-200 dark:bg-surface-800 dark:text-surface-300 dark:hover:bg-surface-700"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-colors hover:bg-slate-200 dark:bg-surface-800 dark:text-surface-300 dark:hover:bg-surface-700"
           >
-            <X size={18} />
+            <X size={16} />
           </motion.button>
 
           <motion.button
@@ -47,21 +47,21 @@ export default function RecordingState({
             onClick={onSubmit}
             whileTap={{ scale: 0.94 }}
             aria-label="Ovozni yuborish"
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-500 text-white transition-colors hover:bg-primary-600"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-500 text-white transition-colors hover:bg-primary-600"
           >
-            <SendHorizontal size={17} />
+            <SendHorizontal size={15} />
           </motion.button>
         </>
       ) : (
         <>
-          <div className="flex min-w-0 items-center gap-2">
-            <Loader2 size={16} className="animate-spin text-primary-500" />
-            <span className="truncate text-[14px] font-medium text-slate-700 dark:text-surface-200">
-              Ovoz matnga aylantirilmoqda...
+          <div className="flex min-w-[126px] items-center gap-2">
+            <Loader2 size={15} className="animate-spin text-primary-500" />
+            <span className="truncate text-[13px] font-medium text-slate-700 dark:text-surface-200">
+              Matnga o‘tkazilmoqda...
             </span>
           </div>
 
-          <div className="flex-1">
+          <div className="flex-1 rounded-full bg-slate-100/80 px-2.5 py-1.5 dark:bg-surface-800/70">
             <VoiceWaveform tone="processing" />
           </div>
         </>

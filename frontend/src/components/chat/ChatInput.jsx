@@ -108,7 +108,7 @@ export default function ChatInput({
   }
 
   const textareaGlow = isFocused
-    ? '0 0 0 1px rgba(99,102,241,0.22)'
+    ? '0 0 0 1px rgba(99,102,241,0.16)'
     : '0 0 0 0 rgba(0,0,0,0)';
 
   const actionMode = isSending
@@ -130,7 +130,7 @@ export default function ChatInput({
           animate={{
             opacity: disabled && !isRecording ? 0.82 : 1,
           }}
-          className="rounded-[18px] border border-slate-200 bg-white/96 px-2.5 py-2 shadow-[0_10px_28px_-20px_rgba(15,23,42,0.18)] backdrop-blur-xl dark:border-surface-700 dark:bg-[#1f2937]/96 dark:shadow-[0_10px_24px_-18px_rgba(2,6,23,0.5)]"
+          className="rounded-[20px] border border-slate-200/90 bg-white/98 px-2.5 py-2 shadow-[0_10px_22px_-20px_rgba(15,23,42,0.24)] backdrop-blur-xl dark:border-surface-700/80 dark:bg-[#1f2937]/98 dark:shadow-[0_10px_18px_-16px_rgba(2,6,23,0.45)]"
         >
           <AnimatePresence mode="wait" initial={false}>
             {isRecording || isProcessingSTT ? (
@@ -155,7 +155,7 @@ export default function ChatInput({
                     boxShadow: textareaGlow,
                   }}
                   transition={{ duration: 0.18, ease: 'easeOut' }}
-                  className="flex flex-1 items-end rounded-[14px] px-2 py-1.5"
+                  className="flex min-h-[36px] flex-1 items-center rounded-[14px] bg-slate-50/75 px-2.5 py-1.5 dark:bg-surface-800/72"
                 >
                   <textarea
                     ref={textareaRef}
@@ -167,7 +167,7 @@ export default function ChatInput({
                     placeholder="Xabar yozing..."
                     rows={1}
                     disabled={textareaDisabled}
-                    className="max-h-[72px] min-h-[22px] w-full resize-none border-0 bg-transparent px-0 py-0 text-[15px] leading-5 text-slate-900 placeholder:text-slate-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 dark:text-surface-50 dark:placeholder:text-surface-400"
+                    className="max-h-[72px] min-h-[20px] w-full resize-none border-0 bg-transparent px-0 py-0 text-[14px] leading-5 text-slate-900 placeholder:text-slate-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 dark:text-surface-50 dark:placeholder:text-surface-400"
                   />
                 </motion.div>
 
@@ -176,20 +176,23 @@ export default function ChatInput({
                   type="button"
                   onClick={actionMode === 'send' ? onSend : handleMicClick}
                   disabled={(actionMode === 'send' && (!hasText || isBusy)) || (actionMode !== 'send' && micDisabled)}
-                  whileTap={{ scale: 0.94 }}
+                  whileTap={{ scale: 0.92 }}
+                  animate={actionMode === 'mic' ? { scale: isFocused ? 1.03 : 1 } : { scale: 1 }}
                   aria-label={actionMode === 'send' ? 'Xabarni yuborish' : 'Ovoz yozishni boshlash'}
-                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 ${
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 ${
                     actionMode === 'send'
-                      ? 'bg-primary-500 text-white shadow-[0_8px_18px_-12px_rgba(99,102,241,0.55)]'
-                      : 'bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-surface-800 dark:text-surface-300 dark:hover:bg-surface-700'
+                      ? 'bg-primary-500 text-white shadow-[0_10px_20px_-14px_rgba(99,102,241,0.58)]'
+                      : actionMode === 'sending'
+                        ? 'bg-slate-100 text-slate-500 dark:bg-surface-800 dark:text-surface-300'
+                        : 'bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-surface-800 dark:text-surface-300 dark:hover:bg-surface-700'
                   }`}
                 >
                   {actionMode === 'sending' ? (
-                    <Loader2 size={18} className="animate-spin" />
+                    <Loader2 size={16} className="animate-spin" />
                   ) : actionMode === 'send' ? (
-                    <SendHorizontal size={18} />
+                    <SendHorizontal size={16} />
                   ) : (
-                    <Mic size={18} />
+                    <Mic size={16} />
                   )}
                 </motion.button>
               </motion.div>
