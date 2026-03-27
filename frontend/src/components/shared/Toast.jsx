@@ -26,22 +26,26 @@ export default function Toast({ message, type = 'info' }) {
   }, []);
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: -16 }}
-      animate={{ opacity: visible ? 1 : 0, y: visible ? 0 : -16 }}
-      className={`pointer-events-none fixed left-1/2 z-[100] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 transition-all duration-300 ${
-        visible ? 'translate-y-0 opacity-100' : '-translate-y-4 opacity-0'
-      }`}
+    <div
+      className="pointer-events-none fixed inset-x-0 z-[100] flex justify-center px-4"
       style={{
         top: 'calc(env(safe-area-inset-top, 0px) + 5.5rem)',
       }}
     >
-      <div
-        className={`flex items-center gap-3 rounded-[24px] border ${BG[type] || BG.info} bg-white/95 px-4 py-3 shadow-[0_22px_48px_-28px_rgba(15,23,42,0.35)] backdrop-blur-xl dark:bg-surface-900/94`}
+      <motion.div
+        initial={{ opacity: 0, y: -16 }}
+        animate={{ opacity: visible ? 1 : 0, y: visible ? 0 : -16 }}
+        className={`w-full max-w-sm transition-all duration-300 ${
+          visible ? 'translate-y-0 opacity-100' : '-translate-y-4 opacity-0'
+        }`}
       >
-        {ICONS[type] || ICONS.info}
-        <p className="text-sm font-medium text-[var(--text)] flex-1">{message}</p>
-      </div>
-    </motion.div>
+        <div
+          className={`flex items-center gap-3 rounded-[24px] border ${BG[type] || BG.info} bg-white/95 px-4 py-3 shadow-[0_22px_48px_-28px_rgba(15,23,42,0.35)] backdrop-blur-xl dark:bg-surface-900/94`}
+        >
+          {ICONS[type] || ICONS.info}
+          <p className="text-sm font-medium text-[var(--text)] flex-1">{message}</p>
+        </div>
+      </motion.div>
+    </div>
   );
 }

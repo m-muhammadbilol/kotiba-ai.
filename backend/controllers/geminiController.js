@@ -19,9 +19,19 @@ export async function processWithGemini(req, res) {
     });
   } catch (err) {
     console.error('[GEMINI ERROR]', err);
+
+    if (err?.status === 429 || err?.code === 'GEMINI_RATE_LIMIT') {
+      return res.status(429).json({
+        success: false,
+        error: 'AI limiti tugagan, keyinroq urinib ko‘ring',
+        code: 'GEMINI_RATE_LIMIT',
+      });
+    }
+
     return res.status(500).json({
       success: false,
-      error: err.message || 'AI xizmatida xato yuz berdi',
+      error: 'AI xizmatida xato yuz berdi',
+      code: err?.code || 'GEMINI_INTERNAL_ERROR',
     });
   }
 }

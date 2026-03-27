@@ -219,6 +219,53 @@ function isMissingModelError(err) {
   );
 }
 
+function extractErrorStatus(err) {
+  const candidates = [
+    err?.status,
+    err?.statusCode,
+    err?.response?.status,
+    err?.cause?.status,
+    err?.cause?.statusCode,
+    err?.errorDetails?.status,
+  ];
+
+  for (const candidate of candidates) {
+    const status = Number(candidate);
+    if (Number.isInteger(status) && status >= 100 && status <= 599) {
+      return status;
+    }
+  }
+
+  const message = err?.message || '';
+  const match = message.match(/\b(429|500|503|404|403|401)\b/);
+  return match ? Number(match[1]) : null;
+}
+
+function normalizeGeminiError(err) {
+  const status = extractErrorStatus(err);
+  const message = String(err?.message || '');
+  const isRateLimited =
+    status === 429 ||
+    /too many requests/i.test(message) ||
+    /resource has been exhausted/i.test(message) ||
+    /quota/i.test(message);
+
+  if (isRateLimited) {
+    const rateLimitError = new Error('AI limiti tugagan, keyinroq urinib ko‘ring');
+    rateLimitError.status = 429;
+    rateLimitError.code = 'GEMINI_RATE_LIMIT';
+    rateLimitError.retryable = true;
+    rateLimitError.originalMessage = message;
+    return rateLimitError;
+  }
+
+  if (status) {
+    err.status = status;
+  }
+
+  return err;
+}
+
 export const geminiService = {
   async process(userText, history, settings) {
     if (!config.geminiApiKey) {
@@ -261,7 +308,7 @@ export const geminiService = {
         lastError = err;
 
         if (!isMissingModelError(err)) {
-          throw err;
+          throw normalizeGeminiError(err);
         }
 
         console.warn(`[GEMINI] Model ishlamadi: ${modelName}. Keyingisi sinab ko'riladi.`);

@@ -234,9 +234,16 @@ export default function ChatPage() {
         }
       } catch (err) {
         console.error('[AI ERROR]', err);
-        const errMsg = 'Kechirasiz, hozir javob bera olmadim. Iltimos qayta urinib ko\'ring.';
+        const isRateLimit = err?.status === 429 || err?.data?.code === 'GEMINI_RATE_LIMIT';
+        const errMsg = isRateLimit
+          ? 'AI limiti tugagan, keyinroq urinib ko‘ring.'
+          : 'Kechirasiz, hozir javob bera olmadim. Iltimos qayta urinib ko\'ring.';
+
         addMessage({ role: 'assistant', content: errMsg, type: 'chat', data: {} });
-        showToast('Xatolik yuz berdi, qayta urinib ko\'ring', 'error');
+        showToast(
+          isRateLimit ? 'AI limiti tugagan, keyinroq urinib ko‘ring' : 'Xatolik yuz berdi, qayta urinib ko\'ring',
+          'error'
+        );
       } finally {
         setProcessingAI(false);
       }
