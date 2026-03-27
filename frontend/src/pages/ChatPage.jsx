@@ -18,7 +18,7 @@ import ChatMessages from '../components/chat/ChatMessages.jsx';
 import ConfirmDialog from '../components/shared/ConfirmDialog.jsx';
 import { applyTheme, applyFontSize } from '../utils/theme.js';
 import { resolveVoiceCommand } from '../utils/voiceCommands.js';
-import { getCurrentTimeAnnouncement, normalizeReminderData } from '../utils/time.js';
+import { getCurrentTimeAnnouncement, normalizeReminderData, resolveQuickReminder } from '../utils/time.js';
 
 function buildCommandMessage(command) {
   if (command.type === 'time') {
@@ -88,6 +88,25 @@ export default function ChatPage() {
 
   const handleLocalCommand = useCallback(
     async (userText) => {
+      const quickReminder = resolveQuickReminder(userText);
+      if (quickReminder) {
+        const reminderData = {
+          title: quickReminder.title,
+          time: quickReminder.time,
+          repeat: quickReminder.repeat || 'none',
+        };
+
+        addReminder(reminderData);
+        addMessage({
+          role: 'assistant',
+          content: quickReminder.response,
+          type: 'reminder',
+          data: reminderData,
+        });
+        showToast('Eslatma saqlandi', 'success');
+        return true;
+      }
+
       const command = resolveVoiceCommand(userText);
       if (!command) return false;
 
@@ -168,6 +187,7 @@ export default function ChatPage() {
     },
     [
       addMessage,
+      addReminder,
       clearMessages,
       clearTasks,
       clearReminders,

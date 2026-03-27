@@ -62,6 +62,38 @@ function normalizeNaturalText(value = '') {
     .trim();
 }
 
+function hasReminderIntent(text = '') {
+  return /\beslat(ib|aman|asan|adi|sin|gin|ing|ay)?\b/i.test(String(text || ''));
+}
+
+function extractWhenLabel(text = '', isoTime = '') {
+  const normalized = normalizeNaturalText(text);
+  const relativeMatch = normalized.match(
+    /(\d+)\s*(sekund|soniya|sek|minut|daqiqa|min|soat|kun|hafta)\s*(dan keyin|keyin)/
+  );
+
+  if (relativeMatch) {
+    return `${relativeMatch[1]} ${relativeMatch[2]}dan keyin`;
+  }
+
+  if (normalized.includes('ertaga')) {
+    const clockMatch = normalized.match(/soat\s*(\d{1,2})(?::(\d{1,2}))?/);
+    return clockMatch ? `ertaga soat ${clockMatch[1]}:${String(clockMatch[2] || 0).padStart(2, '0')} da` : 'ertaga';
+  }
+
+  if (normalized.includes('bugun')) {
+    const clockMatch = normalized.match(/soat\s*(\d{1,2})(?::(\d{1,2}))?/);
+    return clockMatch ? `bugun soat ${clockMatch[1]}:${String(clockMatch[2] || 0).padStart(2, '0')} da` : 'bugun';
+  }
+
+  const clockMatch = normalized.match(/soat\s*(\d{1,2})(?::(\d{1,2}))?/);
+  if (clockMatch) {
+    return `soat ${clockMatch[1]}:${String(clockMatch[2] || 0).padStart(2, '0')} da`;
+  }
+
+  return isoTime ? formatDateTime(isoTime) : '';
+}
+
 export function formatTime(dateStr) {
   if (!dateStr) return '';
   try {
@@ -268,5 +300,24 @@ export function normalizeReminderData(data = {}, userText = '') {
     title: normalizedTitle,
     time: normalizedTime || data.time || '',
     repeat: data.repeat || 'none',
+  };
+}
+
+export function resolveQuickReminder(userText = '') {
+  const sourceText = String(userText || '').trim();
+  if (!sourceText || !hasReminderIntent(sourceText)) return null;
+
+  const normalizedReminder = normalizeReminderData({}, sourceText);
+  if (!normalizedReminder.time) return null;
+
+  const whenLabel = extractWhenLabel(sourceText, normalizedReminder.time);
+  const reminderTitle = normalizedReminder.title || 'eslatma';
+  const response = whenLabel
+    ? `Xo'p, ${whenLabel} ${reminderTitle} eslataman.`
+    : `Xo'p, ${reminderTitle} eslataman.`;
+
+  return {
+    ...normalizedReminder,
+    response,
   };
 }
