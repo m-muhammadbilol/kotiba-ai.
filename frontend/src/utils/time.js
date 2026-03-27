@@ -52,6 +52,16 @@ export function parseTashkentDateTimeInput(value) {
   return new Date(`${normalized}${TASHKENT_OFFSET}`).toISOString();
 }
 
+function normalizeNaturalText(value = '') {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[ʻʼ'`’]/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export function formatTime(dateStr) {
   if (!dateStr) return '';
   try {
@@ -140,25 +150,123 @@ export function isOverdue(dateStr) {
   }
 }
 
-export function parseRelativeTime(text) {
-  // Try to parse natural language time expressions
-  const now = getCurrentTashkentDate();
-  const t = text.toLowerCase();
+function parseDurationToMs(amount, unit) {
+  const count = Number(amount);
+  if (!Number.isFinite(count) || count <= 0) return 0;
 
-  if (t.includes('ertaga')) {
-    const d = new Date(now);
-    d.setDate(d.getDate() + 1);
-    d.setHours(9, 0, 0, 0);
-    return d.toISOString();
-  }
-  if (t.includes('bugun')) {
-    const d = new Date(now);
-    d.setHours(d.getHours() + 1, 0, 0, 0);
-    return d.toISOString();
-  }
+  if (/sek|son/i.test(unit)) return count * 1000;
+  if (/min|daq/i.test(unit)) return count * 60 * 1000;
+  if (/soat/i.test(unit)) return count * 60 * 60 * 1000;
+  if (/kun/i.test(unit)) return count * 24 * 60 * 60 * 1000;
+  if (/hafta/i.test(unit)) return count * 7 * 24 * 60 * 60 * 1000;
+
+  return 0;
+}
+
+function tryParseDate(value) {
+  if (!value) return '';
+
   try {
-    const parsed = new Date(text);
-    if (!isNaN(parsed.getTime())) return parsed.toISOString();
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toISOString();
+    }
   } catch {}
-  return text;
+
+  return '';
+}
+
+export function parseRelativeTime(text, baseDate = getCurrentTashkentDate()) {
+  const sourceText = String(text || '').trim();
+  if (!sourceText) return '';
+
+  const absoluteDate = tryParseDate(sourceText);
+  if (absoluteDate) return absoluteDate;
+
+  const normalized = normalizeNaturalText(sourceText);
+  const now = new Date(baseDate);
+
+  const durationMatch = normalized.match(
+    /(\d+)\s*(sekund|soniya|sek|minut|daqiqa|min|soat|kun|hafta)(?:dan|dan keyin| keyin)?/
+  );
+
+  if (durationMatch && /keyin/.test(normalized)) {
+    const durationMs = parseDurationToMs(durationMatch[1], durationMatch[2]);
+    if (durationMs > 0) {
+      return new Date(now.getTime() + durationMs).toISOString();
+    }
+  }
+
+  if (normalized.includes('ertaga')) {
+    const nextDay = new Date(now);
+    nextDay.setDate(nextDay.getDate() + 1);
+
+    const timeMatch = normalized.match(/soat\s*(\d{1,2})(?::(\d{1,2}))?/);
+    if (timeMatch) {
+      nextDay.setHours(Number(timeMatch[1]), Number(timeMatch[2] || 0), 0, 0);
+    } else {
+      nextDay.setHours(9, 0, 0, 0);
+    }
+
+    return nextDay.toISOString();
+  }
+
+  if (normalized.includes('bugun')) {
+    const sameDay = new Date(now);
+    const timeMatch = normalized.match(/soat\s*(\d{1,2})(?::(\d{1,2}))?/);
+    if (timeMatch) {
+      sameDay.setHours(Number(timeMatch[1]), Number(timeMatch[2] || 0), 0, 0);
+    } else {
+      sameDay.setHours(sameDay.getHours() + 1, 0, 0, 0);
+    }
+    return sameDay.toISOString();
+  }
+
+  const clockMatch = normalized.match(/soat\s*(\d{1,2})(?::(\d{1,2}))?/);
+  if (clockMatch) {
+    const target = new Date(now);
+    target.setHours(Number(clockMatch[1]), Number(clockMatch[2] || 0), 0, 0);
+
+    if (target.getTime() <= now.getTime()) {
+      target.setDate(target.getDate() + 1);
+    }
+
+    return target.toISOString();
+  }
+
+  return '';
+}
+
+export function extractReminderTitle(text) {
+  const sourceText = String(text || '').trim();
+  if (!sourceText) return '';
+
+  return sourceText
+    .replace(/\b\d+\s*(sekund|soniya|sek|minut|daqiqa|min|soat|kun|hafta)\s*(dan keyin|keyin)\b/gi, '')
+    .replace(/\b(ertaga|bugun)\b/gi, '')
+    .replace(/\bsoat\s*\d{1,2}(?::\d{1,2})?\b/gi, '')
+    .replace(/\b(eslatib qoy|eslatib qo'y|eslatib qoying|eslatib qo'ying|eslat|eslatsin|eslatgin|eslatib tur)\b/gi, '')
+    .replace(/\s+/g, ' ')
+    .replace(/^[,.\-:;\s]+|[,.\-:;\s]+$/g, '')
+    .trim();
+}
+
+export function normalizeReminderData(data = {}, userText = '') {
+  const normalizedTime =
+    tryParseDate(data.time) ||
+    parseRelativeTime(data.interval) ||
+    parseRelativeTime(data.time) ||
+    parseRelativeTime(userText);
+
+  const normalizedTitle =
+    String(data.title || '').trim() ||
+    extractReminderTitle(userText) ||
+    'Eslatma';
+
+  return {
+    ...data,
+    title: normalizedTitle,
+    time: normalizedTime || data.time || '',
+    repeat: data.repeat || 'none',
+  };
 }

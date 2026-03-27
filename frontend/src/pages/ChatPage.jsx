@@ -18,7 +18,7 @@ import ChatMessages from '../components/chat/ChatMessages.jsx';
 import ConfirmDialog from '../components/shared/ConfirmDialog.jsx';
 import { applyTheme, applyFontSize } from '../utils/theme.js';
 import { resolveVoiceCommand } from '../utils/voiceCommands.js';
-import { getCurrentTimeAnnouncement } from '../utils/time.js';
+import { getCurrentTimeAnnouncement, normalizeReminderData } from '../utils/time.js';
 
 function buildCommandMessage(command) {
   if (command.type === 'time') {
@@ -207,7 +207,15 @@ export default function ChatPage() {
           throw new Error(result.error || 'AI javob bermadi');
         }
 
-        const { type, text, data } = result;
+        const normalizedData =
+          result.type === 'reminder'
+            ? normalizeReminderData(result.data, userText)
+            : result.type === 'meeting'
+              ? normalizeReminderData({ ...result.data, repeat: 'none' }, userText)
+              : result.data;
+
+        const { type, text } = result;
+        const data = normalizedData;
 
         addMessage({ role: 'assistant', content: text, type, data });
 
@@ -235,7 +243,7 @@ export default function ChatPage() {
         }
       } catch (err) {
         console.error('[AI ERROR]', err);
-        const isRateLimit = err?.status === 429 || err?.data?.code === 'GEMINI_RATE_LIMIT';
+        const isRateLimit = err?.status === 429 || err?.data?.code === 'OPENAI_RATE_LIMIT';
         const errMsg = isRateLimit
           ? 'AI limiti tugagan, keyinroq urinib ko‘ring.'
           : 'Kechirasiz, hozir javob bera olmadim. Iltimos qayta urinib ko\'ring.';

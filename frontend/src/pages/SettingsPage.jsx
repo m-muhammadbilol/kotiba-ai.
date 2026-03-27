@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Sun, Moon, Monitor, Type, User, Volume2, VolumeX, Bell, BellOff,
   MessageSquare, Database, Shield, ChevronRight, Check, RefreshCw,
@@ -85,6 +85,21 @@ export default function SettingsPage() {
   const [confirm, setConfirm] = useState(null);
   const [notifStatus, setNotifStatus] = useState(getNotificationStatus());
 
+  useEffect(() => {
+    const syncNotificationStatus = () => {
+      setNotifStatus(getNotificationStatus());
+    };
+
+    syncNotificationStatus();
+    window.addEventListener('focus', syncNotificationStatus);
+    document.addEventListener('visibilitychange', syncNotificationStatus);
+
+    return () => {
+      window.removeEventListener('focus', syncNotificationStatus);
+      document.removeEventListener('visibilitychange', syncNotificationStatus);
+    };
+  }, []);
+
   // Theme change → apply immediately
   function handleThemeChange(val) {
     updateSetting('theme', val);
@@ -153,7 +168,11 @@ export default function SettingsPage() {
       updateSetting('notificationsEnabled', true);
       showToast('Bildirishnomalar yoqildi!', 'success');
     } else if (result === 'denied') {
+      updateSetting('notificationsEnabled', false);
       showToast('Bildirishnoma rad etildi. Brauzer sozlamalarini tekshiring.', 'error');
+    } else if (result === 'unsupported') {
+      updateSetting('notificationsEnabled', false);
+      showToast('Brauzer bildirishnomani qo‘llab-quvvatlamaydi.', 'error');
     }
   }
 

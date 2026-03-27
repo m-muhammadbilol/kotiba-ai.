@@ -1,7 +1,7 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import OpenAI from 'openai';
 import { config } from '../config/index.js';
 
-const DEFAULT_GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash'];
+const DEFAULT_OPENAI_MODEL = 'gpt-4.1-mini';
 
 function buildSystemPrompt(settings) {
   const aiName = settings.aiName || 'Kotiba';
@@ -20,6 +20,7 @@ function buildSystemPrompt(settings) {
 
   return `SEN - PROFESSIONAL O'ZBEK AI KOTIBA SAN.
 SEN oddiy chatbot emassan. SEN aqlli yordamchi, boshqaruvchi va foydalanuvchining kundalik ishlarini tartibga soluvchi tizimsan.
+AI nomi: ${aiName}.
 Foydalanuvchining ismi: ${fullUserName}.
 Unga ${fullUserName} deb murojaat qil.
 
@@ -142,7 +143,7 @@ function sanitizeResponseText(value) {
   return extracted || rawText;
 }
 
-function safeParseGeminiResponse(text) {
+function safeParseModelResponse(text) {
   const rawText = String(text || '').trim();
   const cleaned = extractJsonCandidate(rawText);
 
@@ -205,29 +206,8 @@ function extractTextField(text) {
   }
 }
 
-function getPreferredModels() {
-  return [...new Set([config.geminiModel, ...DEFAULT_GEMINI_MODELS].filter(Boolean))];
-}
-
-function isMissingModelError(err) {
-  const message = err?.message?.toLowerCase?.() || '';
-
-  return (
-    message.includes('404') ||
-    message.includes('is not found') ||
-    message.includes('not supported for generatecontent')
-  );
-}
-
 function extractErrorStatus(err) {
-  const candidates = [
-    err?.status,
-    err?.statusCode,
-    err?.response?.status,
-    err?.cause?.status,
-    err?.cause?.statusCode,
-    err?.errorDetails?.status,
-  ];
+  const candidates = [err?.status, err?.statusCode, err?.response?.status, err?.cause?.status];
 
   for (const candidate of candidates) {
     const status = Number(candidate);
@@ -236,27 +216,37 @@ function extractErrorStatus(err) {
     }
   }
 
-  const message = err?.message || '';
+  const message = String(err?.message || '');
   const match = message.match(/\b(429|500|503|404|403|401)\b/);
   return match ? Number(match[1]) : null;
 }
 
-function normalizeGeminiError(err) {
+function normalizeOpenAIError(err) {
   const status = extractErrorStatus(err);
   const message = String(err?.message || '');
-  const isRateLimited =
-    status === 429 ||
-    /too many requests/i.test(message) ||
-    /resource has been exhausted/i.test(message) ||
-    /quota/i.test(message);
 
-  if (isRateLimited) {
+  if (status === 429 || /rate limit|quota|too many requests/i.test(message)) {
     const rateLimitError = new Error('AI limiti tugagan, keyinroq urinib ko‘ring');
     rateLimitError.status = 429;
-    rateLimitError.code = 'GEMINI_RATE_LIMIT';
-    rateLimitError.retryable = true;
+    rateLimitError.code = 'OPENAI_RATE_LIMIT';
     rateLimitError.originalMessage = message;
     return rateLimitError;
+  }
+
+  if (status === 401) {
+    const authError = new Error('OpenAI API key noto‘g‘ri yoki muddati tugagan');
+    authError.status = 401;
+    authError.code = 'OPENAI_AUTH_ERROR';
+    authError.originalMessage = message;
+    return authError;
+  }
+
+  if (status === 404) {
+    const modelError = new Error('OpenAI modeli topilmadi. OPENAI_MODEL ni tekshiring');
+    modelError.status = 404;
+    modelError.code = 'OPENAI_MODEL_NOT_FOUND';
+    modelError.originalMessage = message;
+    return modelError;
   }
 
   if (status) {
@@ -266,57 +256,49 @@ function normalizeGeminiError(err) {
   return err;
 }
 
+function buildMessages(userText, history, settings) {
+  const historyMessages = (history || [])
+    .filter((message) => message?.role && message?.content)
+    .slice(-10)
+    .map((message) => ({
+      role: message.role === 'user' ? 'user' : 'assistant',
+      content: String(message.content),
+    }));
+
+  return [
+    {
+      role: 'developer',
+      content: buildSystemPrompt(settings),
+    },
+    ...historyMessages,
+    {
+      role: 'user',
+      content: String(userText),
+    },
+  ];
+}
+
 export const geminiService = {
   async process(userText, history, settings) {
-    if (!config.geminiApiKey) {
-      throw new Error('Gemini API key sozlanmagan');
+    if (!config.openaiApiKey) {
+      throw new Error('OpenAI API key sozlanmagan');
     }
 
-    const genAI = new GoogleGenerativeAI(config.geminiApiKey);
+    const client = new OpenAI({
+      apiKey: config.openaiApiKey,
+    });
 
-    // Build conversation history for Gemini
-    const formattedHistory = (history || [])
-      .filter((m) => m.role && m.content)
-      .slice(-10) // last 10 messages for context
-      .map((m) => ({
-        role: m.role === 'user' ? 'user' : 'model',
-        parts: [{ text: m.content }],
-      }));
+    try {
+      const completion = await client.chat.completions.create({
+        model: config.openaiModel || DEFAULT_OPENAI_MODEL,
+        messages: buildMessages(userText, history, settings),
+        temperature: 0.7,
+      });
 
-    let lastError;
-
-    for (const modelName of getPreferredModels()) {
-      try {
-        const model = genAI.getGenerativeModel({
-          model: modelName,
-          systemInstruction: buildSystemPrompt(settings),
-        });
-
-        const chat = model.startChat({
-          history: formattedHistory,
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 1024,
-          },
-        });
-
-        const result = await chat.sendMessage(userText);
-        const responseText = result.response.text();
-
-        return safeParseGeminiResponse(responseText);
-      } catch (err) {
-        lastError = err;
-
-        if (!isMissingModelError(err)) {
-          throw normalizeGeminiError(err);
-        }
-
-        console.warn(`[GEMINI] Model ishlamadi: ${modelName}. Keyingisi sinab ko'riladi.`);
-      }
+      const responseText = completion.choices?.[0]?.message?.content || '';
+      return safeParseModelResponse(responseText);
+    } catch (err) {
+      throw normalizeOpenAIError(err);
     }
-
-    throw new Error(
-      `Gemini modeli topilmadi. backend/.env ichida GEMINI_MODEL ni yangilang. So'nggi xato: ${lastError?.message || 'noma\'lum xato'}`
-    );
   },
 };

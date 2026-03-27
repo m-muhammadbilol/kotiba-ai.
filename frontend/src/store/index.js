@@ -228,11 +228,7 @@ export const useUIStore = create((set) => ({
       announcementQueue: state.announcementQueue.slice(1),
     })),
   clearAnnouncements: () => set({ announcementQueue: [] }),
-  showToast: (message, type = 'info', options = {}) => {
-    if (options.speak !== false) {
-      useUIStore.getState().enqueueAnnouncement(options.speech || message);
-    }
-
+  showToast: (message, type = 'info') => {
     set((state) => {
       if (state.toastTimer) {
         clearTimeout(state.toastTimer);

@@ -3,7 +3,27 @@ import { useReminderStore, useSettingsStore, useUIStore } from '../store/index.j
 import { sendNotification, playNotificationChime } from '../utils/notification.js';
 import { useAudio } from './useAudio.js';
 
-const CHECK_INTERVAL = 30000; // 30 seconds
+const CHECK_INTERVAL = 10000; // 10 seconds
+
+function toSentenceCase(value = '') {
+  const text = String(value || '').trim();
+  if (!text) return '';
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function buildReminderMessage(title) {
+  const normalizedTitle = String(title || '').trim().replace(/[.!?]+$/g, '');
+
+  if (!normalizedTitle) {
+    return 'Eslatgan ishingizni bajarish vaqti keldi.';
+  }
+
+  if (/kerak$/i.test(normalizedTitle) || /vaqti keldi$/i.test(normalizedTitle)) {
+    return `${toSentenceCase(normalizedTitle)}.`;
+  }
+
+  return `${toSentenceCase(normalizedTitle)} kerak.`;
+}
 
 export function useRemindersScheduler() {
   const { reminders, triggeredIds, markTriggered, scheduleNextRepeat } = useReminderStore();
@@ -23,18 +43,22 @@ export function useRemindersScheduler() {
       if (isNaN(reminderTime.getTime())) return;
 
       const diff = now - reminderTime;
-      // Trigger if within 30 seconds past due
-      if (diff >= 0 && diff <= CHECK_INTERVAL + 5000) {
+
+      // Trigger any overdue reminder that hasn't been handled yet.
+      // This prevents missed notifications when the tab sleeps/backgrounds.
+      if (diff >= 0) {
         markTriggered(reminder.id);
         const shouldSpeakReminder = settings.reminderVoice && settings.ttsEnabled;
-        showToast(`Eslatma vaqti keldi: ${reminder.title}`, 'info', {
-          speak: !shouldSpeakReminder,
-        });
+        const reminderMessage = buildReminderMessage(reminder.title);
 
-        // Send notification
+        showToast(`Eslatma: ${reminderMessage}`, 'info');
+
         if (settings.notificationsEnabled) {
-          sendNotification('⏰ ' + reminder.title, 'Eslatma vaqti keldi!', {
+          sendNotification('⏰ Eslatma', reminderMessage, {
             tag: reminder.id,
+            renotify: true,
+            requireInteraction: true,
+            timestamp: reminderTime.getTime(),
           });
         }
 
@@ -44,7 +68,7 @@ export function useRemindersScheduler() {
 
         // Speak reminder
         if (shouldSpeakReminder) {
-          playText(`Eslatma: ${reminder.title}`);
+          playText(reminderMessage);
         }
 
         // Schedule next if repeat
@@ -58,6 +82,18 @@ export function useRemindersScheduler() {
   useEffect(() => {
     checkReminders();
     intervalRef.current = setInterval(checkReminders, CHECK_INTERVAL);
-    return () => clearInterval(intervalRef.current);
+
+    const handleWakeUpCheck = () => {
+      checkReminders();
+    };
+
+    window.addEventListener('focus', handleWakeUpCheck);
+    document.addEventListener('visibilitychange', handleWakeUpCheck);
+
+    return () => {
+      clearInterval(intervalRef.current);
+      window.removeEventListener('focus', handleWakeUpCheck);
+      document.removeEventListener('visibilitychange', handleWakeUpCheck);
+    };
   }, [checkReminders]);
 }

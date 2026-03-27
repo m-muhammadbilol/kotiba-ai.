@@ -20,34 +20,42 @@ export async function processWithGemini(req, res) {
   } catch (err) {
     console.error('[GEMINI ERROR]', err);
 
-    if (err?.status === 429 || err?.code === 'GEMINI_RATE_LIMIT') {
+    if (err?.status === 429 || err?.code === 'OPENAI_RATE_LIMIT') {
       return res.status(429).json({
         success: false,
         error: 'AI limiti tugagan, keyinroq urinib ko‘ring',
-        code: 'GEMINI_RATE_LIMIT',
+        code: 'OPENAI_RATE_LIMIT',
       });
     }
 
-    if (err?.message?.includes('Gemini API key sozlanmagan')) {
+    if (err?.message?.includes('OpenAI API key sozlanmagan')) {
       return res.status(500).json({
         success: false,
-        error: 'Gemini API key sozlanmagan',
-        code: 'GEMINI_API_KEY_MISSING',
+        error: 'OpenAI API key sozlanmagan',
+        code: 'OPENAI_API_KEY_MISSING',
       });
     }
 
-    if (err?.message?.includes('Gemini modeli topilmadi')) {
-      return res.status(500).json({
+    if (err?.code === 'OPENAI_AUTH_ERROR') {
+      return res.status(401).json({
         success: false,
         error: err.message,
-        code: 'GEMINI_MODEL_NOT_FOUND',
+        code: err.code,
       });
     }
 
-    return res.status(500).json({
+    if (err?.code === 'OPENAI_MODEL_NOT_FOUND') {
+      return res.status(404).json({
+        success: false,
+        error: err.message,
+        code: err.code,
+      });
+    }
+
+    return res.status(err?.status || 500).json({
       success: false,
       error: err?.message || 'AI xizmatida xato yuz berdi',
-      code: err?.code || 'GEMINI_INTERNAL_ERROR',
+      code: err?.code || 'OPENAI_INTERNAL_ERROR',
     });
   }
 }
