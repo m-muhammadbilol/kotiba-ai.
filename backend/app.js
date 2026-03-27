@@ -9,6 +9,7 @@ const app = express();
 
 const DEFAULT_ALLOWED_ORIGINS = [
   'https://kotiba-ai-8dgd.vercel.app',
+  'https://kotiba-ai-akyq.vercel.app',
   'http://localhost:5173',
   'http://127.0.0.1:5173',
   'http://localhost:3000',
@@ -52,7 +53,6 @@ const corsOptions = {
     console.error('[CORS BLOCKED ORIGIN]', origin);
     callback(new Error(`CORS ruxsati yo'q: ${origin}`));
   },
-  credentials: true,
   methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: [
     'Accept',

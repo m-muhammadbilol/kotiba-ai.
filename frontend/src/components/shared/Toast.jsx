@@ -27,13 +27,13 @@ export default function Toast({ message, type = 'info' }) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: visible ? 1 : 0, y: visible ? 0 : 16 }}
-      className={`fixed left-1/2 z-[100] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 transition-all duration-300 ${
-        visible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
+      initial={{ opacity: 0, y: -16 }}
+      animate={{ opacity: visible ? 1 : 0, y: visible ? 0 : -16 }}
+      className={`pointer-events-none fixed left-1/2 z-[100] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 transition-all duration-300 ${
+        visible ? 'translate-y-0 opacity-100' : '-translate-y-4 opacity-0'
       }`}
       style={{
-        bottom: 'calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 12px) + 16px)',
+        top: 'calc(env(safe-area-inset-top, 0px) + 5.5rem)',
       }}
     >
       <div
