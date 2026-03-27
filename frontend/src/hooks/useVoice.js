@@ -1,6 +1,9 @@
 import { useRef, useCallback, useEffect } from 'react';
 import { useUIStore } from '../store/index.js';
-import { apiPostFormData } from '../utils/api.js';
+import { apiGet, apiPostFormData } from '../utils/api.js';
+
+const STT_POLL_INTERVAL_MS = 1500;
+const STT_MAX_POLL_ATTEMPTS = 40;
 
 function normalizeMimeType(mimeType) {
   if (!mimeType || typeof mimeType !== 'string') return 'audio/webm';
@@ -43,6 +46,29 @@ export function useVoice() {
     },
     []
   );
+
+  const pollTranscript = useCallback(async (taskId) => {
+    const normalizedTaskId = String(taskId || '').trim();
+    if (!normalizedTaskId) return '';
+
+    for (let attempt = 0; attempt < STT_MAX_POLL_ATTEMPTS; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, STT_POLL_INTERVAL_MS));
+
+      const result = await apiGet(`/stt/status/${encodeURIComponent(normalizedTaskId)}`);
+      const transcript = typeof result?.text === 'string' ? result.text.trim() : '';
+      const state = String(result?.state || '').toLowerCase();
+
+      if (transcript) {
+        return transcript;
+      }
+
+      if (state === 'completed' && !transcript) {
+        throw new Error('Ovoz tanib bo\'lmadi, qayta urinib ko\'ring');
+      }
+    }
+
+    throw new Error('STT hali tayyor emas, birozdan keyin qayta urinib ko‘ring');
+  }, []);
 
   const startRecording = useCallback(async () => {
     unlockAudioContext();
@@ -144,9 +170,18 @@ export function useVoice() {
           try {
             const result = await transcribeWithBackend(blob, mimeType);
             const transcript = typeof result?.text === 'string' ? result.text.trim() : '';
+            const taskId = typeof result?.taskId === 'string' ? result.taskId.trim() : '';
 
             if (result.success && transcript) {
               resolve(transcript);
+            } else if (result.success && taskId) {
+              const polledTranscript = await pollTranscript(taskId);
+              if (polledTranscript) {
+                resolve(polledTranscript);
+              } else {
+                showToast('Ovoz tanib bo\'lmadi, qayta urinib ko\'ring', 'error');
+                resolve(null);
+              }
             } else {
               showToast('Ovoz tanib bo\'lmadi, qayta urinib ko\'ring', 'error');
               resolve(null);
@@ -162,7 +197,7 @@ export function useVoice() {
 
         recorder.stop();
       }),
-    [setProcessingSTT, setRecording, showToast, stopStream, transcribeWithBackend]
+    [pollTranscript, setProcessingSTT, setRecording, showToast, stopStream, transcribeWithBackend]
   );
 
   const stopRecording = useCallback(() => finalizeRecording('send'), [finalizeRecording]);

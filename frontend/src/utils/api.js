@@ -34,6 +34,29 @@ function buildUrl(path = '') {
   return `${BASE_URL}${normalizePath(path)}`;
 }
 
+export async function apiGet(path, options = {}) {
+  const res = await fetch(buildUrl(path), {
+    method: 'GET',
+    headers: { ...options.headers },
+    signal: options.signal,
+  });
+
+  if (!res.ok) {
+    let errMsg = `Server xatosi: ${res.status}`;
+    let errData = null;
+    try {
+      errData = await res.json();
+      if (errData.error) errMsg = errData.error;
+    } catch {}
+    const error = new Error(errMsg);
+    error.status = res.status;
+    error.data = errData;
+    throw error;
+  }
+
+  return res.json();
+}
+
 export async function apiPost(path, body, options = {}) {
   const res = await fetch(buildUrl(path), {
     method: 'POST',

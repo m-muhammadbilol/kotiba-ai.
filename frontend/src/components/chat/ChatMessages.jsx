@@ -38,7 +38,7 @@ export default function ChatMessages({
                 key={hint}
                 type="button"
                 onClick={() => onHintClick(hint)}
-                className="rounded-2xl border border-white/70 bg-white/90 px-4 py-3 text-left text-sm font-medium text-[var(--text)] shadow-[0_16px_36px_-28px_rgba(15,23,42,0.32)] transition-transform hover:-translate-y-0.5 dark:border-surface-700 dark:bg-surface-800/92"
+                className="rounded-2xl border border-white/70 bg-white/90 px-4 py-3 text-left text-sm font-medium text-slate-800 shadow-[0_16px_36px_-28px_rgba(15,23,42,0.32)] transition-transform hover:-translate-y-0.5 dark:border-surface-700/90 dark:bg-surface-800/96 dark:text-surface-100"
               >
                 {hint}
               </button>

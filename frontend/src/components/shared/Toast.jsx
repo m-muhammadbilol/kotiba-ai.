@@ -40,10 +40,10 @@ export default function Toast({ message, type = 'info' }) {
         }`}
       >
         <div
-          className={`flex items-center gap-3 rounded-[24px] border ${BG[type] || BG.info} bg-white/95 px-4 py-3 shadow-[0_22px_48px_-28px_rgba(15,23,42,0.35)] backdrop-blur-xl dark:bg-surface-900/94`}
+          className={`flex items-center gap-3 rounded-[24px] border ${BG[type] || BG.info} bg-white/95 px-4 py-3 shadow-[0_22px_48px_-28px_rgba(15,23,42,0.35)] backdrop-blur-xl dark:border-surface-700/80 dark:bg-surface-800/96`}
         >
           {ICONS[type] || ICONS.info}
-          <p className="text-sm font-medium text-[var(--text)] flex-1">{message}</p>
+          <p className="flex-1 text-sm font-medium text-slate-900 dark:text-surface-50">{message}</p>
         </div>
       </motion.div>
     </div>

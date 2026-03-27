@@ -2,31 +2,7 @@ import fetch from 'node-fetch';
 import FormData from 'form-data';
 import { config } from '../config/index.js';
 
-const MAX_POLL_ATTEMPTS = 30;
-const POLL_INTERVAL_MS = 1000;
-
-async function sleep(ms) {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
-function isCompletedState(state) {
-  return ['success', 'completed', 'done'].includes((state || '').toLowerCase());
-}
-
-function isFailedState(state) {
-  return ['failure', 'failed', 'error'].includes((state || '').toLowerCase());
-}
-
-function extractTranscript(payload) {
-  const text =
-    payload?.result?.text ||
-    payload?.result?.conversation_text ||
-    payload?.text ||
-    payload?.result ||
-    '';
-
-  return typeof text === 'string' ? text.trim() : '';
-}
+const EXTERNAL_FETCH_TIMEOUT_MS = 20000;
 
 function normalizeMimeType(mimeType) {
   if (!mimeType || typeof mimeType !== 'string') return 'audio/webm';
@@ -66,6 +42,50 @@ async function getMultipartHeaders(form) {
   };
 }
 
+function extractTranscript(payload) {
+  const text =
+    payload?.result?.text ||
+    payload?.result?.conversation_text ||
+    payload?.text ||
+    payload?.result ||
+    '';
+
+  return typeof text === 'string' ? text.trim() : '';
+}
+
+function normalizeState(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function getPayloadState(payload) {
+  return normalizeState(
+    payload?.status ||
+      payload?.state ||
+      payload?.task_status ||
+      payload?.result?.status ||
+      payload?.result?.state
+  );
+}
+
+function isCompletedState(state) {
+  return ['success', 'completed', 'done', 'ready', 'finished'].includes(normalizeState(state));
+}
+
+function isFailedState(state) {
+  return ['failure', 'failed', 'error', 'cancelled', 'canceled'].includes(normalizeState(state));
+}
+
+function resolveTaskId(payload) {
+  return (
+    payload?.task_id ||
+    payload?.taskId ||
+    payload?.id ||
+    payload?.result?.task_id ||
+    payload?.result?.id ||
+    ''
+  );
+}
+
 function buildPollingUrls(taskId) {
   const rawTaskId = String(taskId || '').trim();
   if (!rawTaskId) return [];
@@ -85,11 +105,22 @@ function buildPollingUrls(taskId) {
   ]);
 }
 
+async function fetchWithTimeout(url, options = {}) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), EXTERNAL_FETCH_TIMEOUT_MS);
+
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 async function fetchPollingData(taskId) {
   const pollingUrls = buildPollingUrls(taskId);
 
   for (const pollingUrl of pollingUrls) {
-    const pollRes = await fetch(pollingUrl, {
+    const pollRes = await fetchWithTimeout(pollingUrl, {
       headers: {
         Authorization: config.uzbekVoiceApiKey,
       },
@@ -104,14 +135,73 @@ async function fetchPollingData(taskId) {
     }
 
     const errText = await pollRes.text();
-    throw new Error(`STT polling xatosi: ${pollRes.status} - ${errText || pollingUrl}`);
+    const error = new Error(`STT polling xatosi: ${pollRes.status} - ${errText || pollingUrl}`);
+    error.status = pollRes.status;
+    throw error;
   }
 
   return null;
 }
 
+function normalizeInitResult(payload) {
+  const text = extractTranscript(payload);
+  const taskId = resolveTaskId(payload);
+  const state = getPayloadState(payload);
+
+  if (text) {
+    return {
+      state: 'completed',
+      text,
+      taskId,
+    };
+  }
+
+  if (isFailedState(state)) {
+    const error = new Error('STT aniqlashda xato yuz berdi');
+    error.status = 502;
+    throw error;
+  }
+
+  if (!taskId) {
+    const error = new Error('STT task ID topilmadi');
+    error.status = 502;
+    throw error;
+  }
+
+  return {
+    state: isCompletedState(state) ? 'completed' : 'processing',
+    text: '',
+    taskId,
+  };
+}
+
+function normalizeStatusResult(payload, taskId) {
+  const text = extractTranscript(payload);
+  const state = getPayloadState(payload);
+
+  if (text) {
+    return {
+      state: 'completed',
+      text,
+      taskId: resolveTaskId(payload) || taskId,
+    };
+  }
+
+  if (isFailedState(state)) {
+    const error = new Error('STT aniqlashda xato yuz berdi');
+    error.status = 502;
+    throw error;
+  }
+
+  return {
+    state: isCompletedState(state) ? 'completed' : 'processing',
+    text: '',
+    taskId: resolveTaskId(payload) || taskId,
+  };
+}
+
 export const sttService = {
-  async transcribe({ audioBuffer, mimeType, filename }) {
+  async startTranscription({ audioBuffer, mimeType, filename }) {
     if (!config.uzbekVoiceApiKey) {
       throw new Error('UzbekVoice API key sozlanmagan');
     }
@@ -123,9 +213,11 @@ export const sttService = {
       contentType: normalizedMimeType,
     });
     form.append('language', 'uz');
-    form.append('blocking', 'true');
+    form.append('blocking', 'false');
+    form.append('return_offsets', 'false');
+    form.append('run_diarization', 'false');
 
-    const initRes = await fetch(`${config.uzbekVoiceBaseUrl}/stt`, {
+    const initRes = await fetchWithTimeout(`${config.uzbekVoiceBaseUrl}/stt`, {
       method: 'POST',
       headers: await getMultipartHeaders(form),
       body: form,
@@ -133,56 +225,29 @@ export const sttService = {
 
     if (!initRes.ok) {
       const errText = await initRes.text();
-      throw new Error(`STT boshlash xatosi: ${initRes.status} - ${errText}`);
+      const error = new Error(`STT boshlash xatosi: ${initRes.status} - ${errText}`);
+      error.status = initRes.status;
+      throw error;
     }
 
     const initData = await initRes.json();
-    const initialTranscript = extractTranscript(initData);
+    return normalizeInitResult(initData);
+  },
 
-    if (initialTranscript) {
-      return initialTranscript;
+  async getTranscriptionStatus(taskId) {
+    if (!config.uzbekVoiceApiKey) {
+      throw new Error('UzbekVoice API key sozlanmagan');
     }
 
-    const taskId =
-      [initData.id, initData.task_id].find(
-        (value) => typeof value === 'string' && value.includes('/')
-      ) ||
-      initData.id ||
-      initData.task_id;
-    const initialState = initData.status || initData.state;
-
-    if (isFailedState(initialState)) {
-      throw new Error('STT aniqlashda xato yuz berdi');
+    const pollData = await fetchPollingData(taskId);
+    if (!pollData) {
+      return {
+        state: 'processing',
+        text: '',
+        taskId,
+      };
     }
 
-    if (!taskId) {
-      throw new Error('STT task ID topilmadi');
-    }
-
-    for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++) {
-      await sleep(POLL_INTERVAL_MS);
-      const pollData = await fetchPollingData(taskId);
-      if (!pollData) {
-        continue;
-      }
-
-      const status = pollData.status || pollData.state;
-
-      if (isCompletedState(status)) {
-        const text = extractTranscript(pollData);
-        if (!text) throw new Error('STT natijasi bo\'sh');
-        return text;
-      }
-
-      if (isFailedState(status)) {
-        throw new Error('STT aniqlashda xato yuz berdi');
-      }
-
-      if (!status && extractTranscript(pollData)) {
-        return extractTranscript(pollData);
-      }
-    }
-
-    throw new Error('STT vaqt tugadi (timeout)');
+    return normalizeStatusResult(pollData, taskId);
   },
 };

@@ -1,6 +1,6 @@
 import express from 'express';
 import multer from 'multer';
-import { transcribeAudio } from '../controllers/sttController.js';
+import { getTranscriptionStatus, transcribeAudio } from '../controllers/sttController.js';
 
 const router = express.Router();
 const upload = multer({
@@ -16,5 +16,7 @@ router.post(
   ]),
   transcribeAudio
 );
+
+router.get('/status/:taskId', getTranscriptionStatus);
 
 export default router;
