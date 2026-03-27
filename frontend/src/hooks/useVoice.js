@@ -194,6 +194,7 @@ export function useVoice() {
               message: err?.message,
               status: err?.status,
               data: err?.data,
+              details: err?.data?.details,
             });
 
             const errorMessage =

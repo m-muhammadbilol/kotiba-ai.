@@ -5,6 +5,8 @@ import { config } from '../config/index.js';
 const EXTERNAL_FETCH_TIMEOUT_MS = 20000;
 const BLOCKING_FETCH_TIMEOUT_MS = 90000;
 const MAX_BLOCKING_AUDIO_SECONDS = 60;
+const BLOCKING_POLL_INTERVAL_MS = 1500;
+const BLOCKING_POLL_TIMEOUT_MS = 45000;
 
 function normalizeMimeType(mimeType) {
   if (!mimeType || typeof mimeType !== 'string') return 'audio/webm';
@@ -107,6 +109,10 @@ function buildPollingUrls(taskId) {
   ]);
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function fetchWithTimeout(url, options = {}, timeoutMs = EXTERNAL_FETCH_TIMEOUT_MS) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -161,6 +167,44 @@ async function fetchPollingData(taskId) {
   }
 
   return null;
+}
+
+async function waitForBlockingCompletion(taskId) {
+  const startedAt = Date.now();
+  let attempt = 0;
+
+  while (Date.now() - startedAt < BLOCKING_POLL_TIMEOUT_MS) {
+    attempt += 1;
+    const pollData = await fetchPollingData(taskId);
+
+    if (pollData) {
+      const result = normalizeStatusResult(pollData, taskId);
+
+      console.log('[STT] blocking:poll', {
+        taskId,
+        attempt,
+        state: result.state,
+        hasText: Boolean(result.text),
+      });
+
+      if (result.text) {
+        return result;
+      }
+
+      if (result.state === 'completed') {
+        break;
+      }
+    } else {
+      console.log('[STT] blocking:poll:not-ready', { taskId, attempt });
+    }
+
+    await sleep(BLOCKING_POLL_INTERVAL_MS);
+  }
+
+  const timeoutError = new Error('STT serveri javob bermadi');
+  timeoutError.status = 504;
+  timeoutError.details = `Task ${taskId} ${BLOCKING_POLL_TIMEOUT_MS}ms ichida tayyor bo'lmadi`;
+  throw timeoutError;
 }
 
 function normalizeInitResult(payload) {
@@ -294,12 +338,13 @@ export const sttService = {
     if (shouldUseBlocking) {
       const transcript = extractTranscript(initData);
       const state = getPayloadState(initData);
+      const taskId = resolveTaskId(initData);
 
       if (transcript) {
         return {
           state: 'completed',
           text: transcript,
-          taskId: resolveTaskId(initData),
+          taskId,
         };
       }
 
@@ -308,6 +353,11 @@ export const sttService = {
         error.status = 502;
         error.details = JSON.stringify(initData);
         throw error;
+      }
+
+      if (taskId) {
+        console.log('[STT] blocking:waiting', { taskId, state });
+        return waitForBlockingCompletion(taskId);
       }
 
       const error = new Error('STT matn qaytarmadi');
