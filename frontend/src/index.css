@@ -1,0 +1,197 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-size-base: 16px;
+    --bottom-nav-height: 78px;
+    --chat-composer-height: 144px;
+    --chat-composer-gap: 14px;
+    --bg: #f8fafc;
+    --surface: #ffffff;
+    --border: #e2e8f0;
+    --text: #0f172a;
+    --text-muted: #64748b;
+    --primary: #6366f1;
+    --primary-light: #e0e9ff;
+  }
+
+  .dark {
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --border: #334155;
+    --text: #f1f5f9;
+    --text-muted: #94a3b8;
+    --primary: #818cf8;
+    --primary-light: #312e81;
+  }
+
+  html {
+    font-size: var(--font-size-base);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html, body, #root {
+    min-height: 100dvh;
+  }
+
+  #root {
+    height: 100dvh;
+  }
+
+  body {
+    font-family: 'Nunito', sans-serif;
+    background-color: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow: hidden;
+    overscroll-behavior-y: none;
+  }
+
+  * {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  input, textarea, button {
+    font-family: inherit;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 999px;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-white dark:bg-surface-800 rounded-2xl shadow-card border border-surface-100 dark:border-surface-700;
+  }
+
+  .btn-primary {
+    @apply bg-primary-500 hover:bg-primary-600 text-white font-semibold rounded-xl px-4 py-2.5 transition-all duration-200 active:scale-95 shadow-glow-sm;
+  }
+
+  .btn-ghost {
+    @apply bg-transparent hover:bg-surface-100 dark:hover:bg-surface-700 text-surface-600 dark:text-surface-300 font-medium rounded-xl px-4 py-2.5 transition-all duration-200 active:scale-95;
+  }
+
+  .btn-danger {
+    @apply bg-red-500 hover:bg-red-600 text-white font-semibold rounded-xl px-4 py-2.5 transition-all duration-200 active:scale-95;
+  }
+
+  .input-field {
+    @apply w-full bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-600 rounded-xl px-4 py-3 text-surface-900 dark:text-surface-100 placeholder-surface-400 focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent transition-all duration-200;
+  }
+
+  .page-container {
+    @apply max-w-lg mx-auto px-4;
+    padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 16px) + 1rem);
+  }
+
+  .section-title {
+    @apply text-lg font-bold text-surface-900 dark:text-surface-100;
+  }
+}
+
+/* Recording animation */
+@keyframes recordPulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.15); opacity: 0.85; }
+}
+
+@keyframes wave {
+  0% { transform: scaleY(0.5); }
+  50% { transform: scaleY(1.2); }
+  100% { transform: scaleY(0.5); }
+}
+
+@keyframes ripple {
+  0% { transform: scale(1); opacity: 0.6; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+
+.recording-pulse {
+  animation: recordPulse 1s ease-in-out infinite;
+}
+
+.wave-bar {
+  animation: wave 0.8s ease-in-out infinite;
+}
+
+.ripple-ring {
+  animation: ripple 1.5s ease-out infinite;
+}
+
+/* Typing dots */
+@keyframes typingDot {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-6px); opacity: 1; }
+}
+
+.typing-dot {
+  animation: typingDot 1.2s ease-in-out infinite;
+}
+
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+/* Safe area for mobile */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+}
+
+.app-shell {
+  min-height: 100dvh;
+  height: 100dvh;
+}
+
+.app-main {
+  min-height: 0;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+
+.bottom-nav {
+  min-height: var(--bottom-nav-height);
+  padding-bottom: env(safe-area-inset-bottom, 12px);
+}
+
+.chat-scroll-area {
+  padding-bottom: calc(
+    var(--chat-composer-height) +
+    var(--bottom-nav-height) +
+    env(safe-area-inset-bottom, 12px) +
+    var(--chat-composer-gap) +
+    22px
+  );
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+
+.chat-input-anchor {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 12px) + var(--chat-composer-gap));
+  width: 100%;
+  max-width: 32rem;
+  padding-inline: 1rem;
+  transform: translateX(-50%);
+  pointer-events: none;
+  z-index: 30;
+}
+
+/* Smooth page transitions */
+.page-enter {
+  animation: slideUp 0.25s ease-out;
+}
