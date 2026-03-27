@@ -6,8 +6,8 @@
   :root {
     --font-size-base: 16px;
     --bottom-nav-height: 78px;
-    --chat-composer-height: 144px;
-    --chat-composer-gap: 14px;
+    --chat-composer-height: 84px;
+    --chat-composer-gap: 12px;
     --bg: #f8fafc;
     --surface: #ffffff;
     --border: #e2e8f0;
@@ -185,7 +185,7 @@
   bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 12px) + var(--chat-composer-gap));
   width: 100%;
   max-width: 32rem;
-  padding-inline: 1rem;
+  padding-inline: 0.75rem;
   transform: translateX(-50%);
   pointer-events: none;
   z-index: 30;

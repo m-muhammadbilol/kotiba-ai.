@@ -42,7 +42,7 @@ export default function ChatPage() {
     setProcessingAI,
     showToast,
   } = useUIStore();
-  const { startRecording, stopRecording, unlockAudioContext } = useVoice();
+  const { startRecording, stopRecording, cancelRecording, unlockAudioContext } = useVoice();
   const { playText, stopAudio } = useAudio();
   const navigate = useNavigate();
 
@@ -295,6 +295,11 @@ export default function ChatPage() {
     }
   }, [handleUserInput, showToast, stopRecording]);
 
+  const handleMicCancel = useCallback(async () => {
+    await cancelRecording();
+    showToast('Yozib olish bekor qilindi', 'info');
+  }, [cancelRecording, showToast]);
+
   const handleTextSend = useCallback(async () => {
     const text = inputValue.trim();
     if (!text) return;
@@ -338,6 +343,7 @@ export default function ChatPage() {
         onSend={handleTextSend}
         onMicStart={handleMicStart}
         onMicStop={handleMicStop}
+        onMicCancel={handleMicCancel}
         isRecording={isRecording}
         isProcessingSTT={isProcessingSTT}
         isSending={isProcessingAI}

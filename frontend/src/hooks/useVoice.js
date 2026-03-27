@@ -20,6 +20,7 @@ export function useVoice() {
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
   const streamRef = useRef(null);
+  const stopModeRef = useRef('send');
 
   const { setRecording, setProcessingSTT, showToast } = useUIStore();
 
@@ -61,6 +62,7 @@ export function useVoice() {
       const options = mimeType ? { mimeType } : {};
       const recorder = new MediaRecorder(stream, options);
       mediaRecorderRef.current = recorder;
+      stopModeRef.current = 'send';
 
       recorder.ondataavailable = (e) => {
         if (e.data && e.data.size > 0) {
@@ -90,22 +92,35 @@ export function useVoice() {
     }
   }, [unlockAudioContext, setRecording, showToast, stopStream]);
 
-  const stopRecording = useCallback(
-    () => {
-      return new Promise((resolve) => {
+  const finalizeRecording = useCallback(
+    (mode = 'send') =>
+      new Promise((resolve) => {
         const recorder = mediaRecorderRef.current;
+
         if (!recorder || recorder.state === 'inactive') {
           stopStream();
           chunksRef.current = [];
+          mediaRecorderRef.current = null;
+          stopModeRef.current = 'send';
           setRecording(false);
           resolve(null);
           return;
         }
 
+        stopModeRef.current = mode;
+
         recorder.onstop = async () => {
+          const currentMode = stopModeRef.current;
           setRecording(false);
           stopStream();
           mediaRecorderRef.current = null;
+          stopModeRef.current = 'send';
+
+          if (currentMode === 'cancel') {
+            chunksRef.current = [];
+            resolve(null);
+            return;
+          }
 
           if (chunksRef.current.length === 0) {
             chunksRef.current = [];
@@ -146,10 +161,13 @@ export function useVoice() {
         };
 
         recorder.stop();
-      });
-    },
+      }),
     [setProcessingSTT, setRecording, showToast, stopStream, transcribeWithBackend]
   );
+
+  const stopRecording = useCallback(() => finalizeRecording('send'), [finalizeRecording]);
+
+  const cancelRecording = useCallback(() => finalizeRecording('cancel'), [finalizeRecording]);
 
   useEffect(() => {
     return () => {
@@ -157,7 +175,7 @@ export function useVoice() {
     };
   }, [stopStream]);
 
-  return { startRecording, stopRecording, unlockAudioContext };
+  return { startRecording, stopRecording, cancelRecording, unlockAudioContext };
 }
 
 function getSupportedMimeType() {
