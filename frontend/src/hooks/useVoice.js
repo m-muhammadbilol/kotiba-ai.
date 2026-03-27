@@ -16,6 +16,83 @@ function getFileExtension(mimeType) {
   return 'webm';
 }
 
+function getAudioContextCtor() {
+  if (typeof window === 'undefined') return null;
+  return window.AudioContext || window.webkitAudioContext || null;
+}
+
+function encodeWav(audioBuffer) {
+  const numberOfChannels = audioBuffer.numberOfChannels;
+  const sampleRate = audioBuffer.sampleRate;
+  const format = 1;
+  const bitDepth = 16;
+  const samples = audioBuffer.length;
+  const blockAlign = numberOfChannels * (bitDepth / 8);
+  const byteRate = sampleRate * blockAlign;
+  const dataSize = samples * blockAlign;
+  const buffer = new ArrayBuffer(44 + dataSize);
+  const view = new DataView(buffer);
+
+  function writeString(offset, value) {
+    for (let index = 0; index < value.length; index += 1) {
+      view.setUint8(offset + index, value.charCodeAt(index));
+    }
+  }
+
+  writeString(0, 'RIFF');
+  view.setUint32(4, 36 + dataSize, true);
+  writeString(8, 'WAVE');
+  writeString(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, format, true);
+  view.setUint16(22, numberOfChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, byteRate, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, bitDepth, true);
+  writeString(36, 'data');
+  view.setUint32(40, dataSize, true);
+
+  const channelData = Array.from({ length: numberOfChannels }, (_, index) =>
+    audioBuffer.getChannelData(index)
+  );
+
+  let offset = 44;
+  for (let sampleIndex = 0; sampleIndex < samples; sampleIndex += 1) {
+    for (let channelIndex = 0; channelIndex < numberOfChannels; channelIndex += 1) {
+      const sample = Math.max(-1, Math.min(1, channelData[channelIndex][sampleIndex] || 0));
+      const pcm = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
+      view.setInt16(offset, pcm, true);
+      offset += 2;
+    }
+  }
+
+  return new Blob([buffer], { type: 'audio/wav' });
+}
+
+async function convertBlobToWav(blob) {
+  if (!blob || !blob.size) {
+    throw new Error('Audio blob bo‘sh');
+  }
+
+  const AudioContextCtor = getAudioContextCtor();
+  if (!AudioContextCtor) {
+    throw new Error('AudioContext qo‘llab-quvvatlanmaydi');
+  }
+
+  const arrayBuffer = await blob.arrayBuffer();
+  const audioContext = new AudioContextCtor();
+
+  try {
+    const decodedBuffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
+    return encodeWav(decodedBuffer);
+  } finally {
+    if (typeof audioContext.close === 'function') {
+      await audioContext.close().catch(() => {});
+    }
+  }
+}
+
 export function useVoice() {
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
@@ -50,6 +127,39 @@ export function useVoice() {
     });
 
     return apiPostFormData('/stt', formData);
+  }, []);
+
+  const prepareSttBlob = useCallback(async (blob, mimeType) => {
+    const normalizedMimeType = normalizeMimeType(mimeType);
+
+    if (normalizedMimeType === 'audio/wav') {
+      return { blob, mimeType: normalizedMimeType };
+    }
+
+    try {
+      console.log('[STT] wav:convert:start', {
+        sourceMimeType: normalizedMimeType,
+        sourceSize: blob.size,
+      });
+
+      const wavBlob = await convertBlobToWav(blob);
+
+      console.log('[STT] wav:convert:done', {
+        sourceMimeType: normalizedMimeType,
+        targetMimeType: 'audio/wav',
+        sourceSize: blob.size,
+        targetSize: wavBlob.size,
+      });
+
+      return { blob: wavBlob, mimeType: 'audio/wav' };
+    } catch (error) {
+      console.warn('[STT] wav:convert:failed', {
+        sourceMimeType: normalizedMimeType,
+        message: error?.message || 'unknown error',
+      });
+
+      return { blob, mimeType: normalizedMimeType };
+    }
   }, []);
 
   const startRecording = useCallback(async () => {
@@ -173,13 +283,19 @@ export function useVoice() {
           setProcessingSTT(true);
 
           try {
-            const result = await transcribeWithBackend(blob, mimeType, durationSeconds);
+            const preparedAudio = await prepareSttBlob(blob, mimeType);
+            const result = await transcribeWithBackend(
+              preparedAudio.blob,
+              preparedAudio.mimeType,
+              durationSeconds
+            );
             const transcript = typeof result?.text === 'string' ? result.text.trim() : '';
 
             console.log('[STT] request:done', {
               success: result?.success,
               state: result?.state,
               hasText: Boolean(transcript),
+              mimeType: preparedAudio.mimeType,
             });
 
             if (result.success && transcript) {
@@ -217,7 +333,7 @@ export function useVoice() {
 
         recorder.stop();
       }),
-    [setProcessingSTT, setRecording, showToast, stopStream, transcribeWithBackend]
+    [prepareSttBlob, setProcessingSTT, setRecording, showToast, stopStream, transcribeWithBackend]
   );
 
   const stopRecording = useCallback(() => finalizeRecording('send'), [finalizeRecording]);
