@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { useReminderStore, useSettingsStore, useUIStore } from '../store/index.js';
 import { sendNotification, playNotificationChime } from '../utils/notification.js';
 import { useAudio } from './useAudio.js';
+import { getReminderDueTime } from '../utils/time.js';
 
 const CHECK_INTERVAL = 10000; // 10 seconds
 
@@ -39,7 +40,7 @@ export function useRemindersScheduler() {
       if (!reminder.active) return;
       if (triggeredIds.includes(reminder.id)) return;
 
-      const reminderTime = new Date(reminder.time);
+      const reminderTime = new Date(getReminderDueTime(reminder));
       if (isNaN(reminderTime.getTime())) return;
 
       const diff = now - reminderTime;
@@ -54,7 +55,7 @@ export function useRemindersScheduler() {
         showToast(`Eslatma: ${reminderMessage}`, 'info');
 
         if (settings.notificationsEnabled) {
-          sendNotification('⏰ Eslatma', reminderMessage, {
+          sendNotification('Eslatma', reminderMessage, {
             tag: reminder.id,
             renotify: true,
             requireInteraction: true,

@@ -80,10 +80,10 @@ function ActionCard({ type, data }) {
       <div className="min-w-0">
         <p className={`mb-0.5 text-xs font-semibold ${color}`}>{label}</p>
         <p className="text-xs font-medium text-slate-900 dark:text-surface-100 truncate">{data.title || data.note || ''}</p>
-        {data.time && (
+        {(data.dueTime || data.time) && (
           <p className="text-xs text-[var(--text-muted)] mt-0.5">
             <Clock size={10} className="inline mr-1" />
-            {formatDateTime(data.time)}
+            {formatDateTime(data.dueTime || data.time)}
           </p>
         )}
         {data.amount !== undefined && (

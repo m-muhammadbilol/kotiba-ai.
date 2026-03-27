@@ -1,7 +1,16 @@
 import React, { useState, useMemo } from 'react';
-import { Bell, BellOff, Trash2, Clock, Repeat, Plus, Calendar } from 'lucide-react';
-import { useReminderStore, useUIStore } from '../store/index.js';
-import { formatDateTime, isOverdue, parseTashkentDateTimeInput } from '../utils/time.js';
+import { Bell, BellOff, Trash2, Clock, Repeat, Plus } from 'lucide-react';
+import { useReminderStore, useSettingsStore, useUIStore } from '../store/index.js';
+import {
+  formatDateTime,
+  formatTimeRemaining,
+  getReminderDueTime,
+  getReminderStatus,
+  isOverdue,
+  normalizeReminderData,
+  parseTashkentDateTimeInput,
+} from '../utils/time.js';
+import { requestNotificationPermission } from '../utils/notification.js';
 import PageHeader from '../components/shared/PageHeader.jsx';
 import EmptyState from '../components/shared/EmptyState.jsx';
 import ConfirmDialog from '../components/shared/ConfirmDialog.jsx';
@@ -74,8 +83,17 @@ function AddReminderModal({ onClose, onAdd }) {
 }
 
 function ReminderItem({ reminder, onToggle, onDelete }) {
-  const overdue = reminder.active && isOverdue(reminder.time);
+  const dueTime = getReminderDueTime(reminder);
+  const overdue = reminder.active && isOverdue(dueTime);
   const isRepeating = reminder.repeat !== 'none';
+  const status = getReminderStatus(reminder);
+  const statusLabel = status === 'bajarildi' ? 'Bajarildi' : 'Kutilmoqda';
+  const remainingLabel =
+    status === 'bajarildi'
+      ? reminder.triggeredAt
+        ? `Bajarilgan: ${formatDateTime(reminder.triggeredAt)}`
+        : 'Bajarilgan'
+      : formatTimeRemaining(dueTime);
 
   return (
     <div className={`p-4 bg-[var(--surface)] rounded-2xl border shadow-soft transition-all ${
@@ -93,8 +111,17 @@ function ReminderItem({ reminder, onToggle, onDelete }) {
           <div className="flex items-center gap-3 mt-1.5 flex-wrap">
             <span className={`flex items-center gap-1 text-xs font-medium ${overdue ? 'text-red-500' : 'text-[var(--text-muted)]'}`}>
               <Clock size={11} />
-              {formatDateTime(reminder.time)}
+              {formatDateTime(dueTime)}
               {overdue && ' · O\'tib ketdi'}
+            </span>
+            <span
+              className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                status === 'bajarildi'
+                  ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-300'
+                  : 'bg-sky-50 text-sky-600 dark:bg-sky-950/30 dark:text-sky-300'
+              }`}
+            >
+              {statusLabel}
             </span>
             {isRepeating && (
               <span className="flex items-center gap-1 text-xs text-primary-500 font-medium">
@@ -103,6 +130,7 @@ function ReminderItem({ reminder, onToggle, onDelete }) {
               </span>
             )}
           </div>
+          <p className="mt-2 text-xs text-[var(--text-muted)]">{remainingLabel}</p>
         </div>
 
         <div className="flex items-center gap-1 flex-shrink-0">
@@ -129,6 +157,7 @@ function ReminderItem({ reminder, onToggle, onDelete }) {
 
 export default function RemindersPage() {
   const { reminders, addReminder, deleteReminder, toggleReminder } = useReminderStore();
+  const { settings, updateSetting } = useSettingsStore();
   const { showToast } = useUIStore();
   const [showAddModal, setShowAddModal] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
@@ -137,19 +166,29 @@ export default function RemindersPage() {
   const filtered = useMemo(() => {
     const now = new Date();
     return reminders.filter((r) => {
-      if (filter === 'active') return r.active && new Date(r.time) >= now;
-      if (filter === 'past') return !r.active || new Date(r.time) < now;
+      const dueTime = new Date(getReminderDueTime(r));
+      if (filter === 'active') return r.active && dueTime >= now;
+      if (filter === 'past') return !r.active || dueTime < now;
       return true;
     });
   }, [reminders, filter]);
 
   const upcomingCount = useMemo(() => {
     const now = new Date();
-    return reminders.filter((r) => r.active && new Date(r.time) >= now).length;
+    return reminders.filter((r) => r.active && new Date(getReminderDueTime(r)) >= now).length;
   }, [reminders]);
 
-  function handleAdd(data) {
-    addReminder(data);
+  async function handleAdd(data) {
+    const permission = await requestNotificationPermission();
+
+    if (permission === 'granted' && !settings.notificationsEnabled) {
+      updateSetting('notificationsEnabled', true);
+    } else if (permission === 'denied' || permission === 'unsupported') {
+      updateSetting('notificationsEnabled', false);
+      showToast('Brauzer eslatmalariga ruxsat berilmagan', 'warning');
+    }
+
+    addReminder(normalizeReminderData(data, data.title));
     showToast('🔔 Eslatma qo\'shildi', 'success');
   }
 

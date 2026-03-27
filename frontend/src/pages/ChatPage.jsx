@@ -19,6 +19,7 @@ import ConfirmDialog from '../components/shared/ConfirmDialog.jsx';
 import { applyTheme, applyFontSize } from '../utils/theme.js';
 import { resolveVoiceCommand } from '../utils/voiceCommands.js';
 import { getCurrentTimeAnnouncement, normalizeReminderData, resolveQuickReminder } from '../utils/time.js';
+import { requestNotificationPermission } from '../utils/notification.js';
 
 function buildCommandMessage(command) {
   if (command.type === 'time') {
@@ -86,13 +87,38 @@ export default function ChatPage() {
     [updateSetting]
   );
 
+  const ensureReminderNotificationPermission = useCallback(async () => {
+    const result = await requestNotificationPermission();
+
+    if (result === 'granted') {
+      if (!settings.notificationsEnabled) {
+        updateSetting('notificationsEnabled', true);
+      }
+
+      return true;
+    }
+
+    if (result === 'denied' || result === 'unsupported') {
+      updateSetting('notificationsEnabled', false);
+      showToast('Brauzer eslatmalariga ruxsat berilmagan', 'warning');
+    }
+
+    return false;
+  }, [settings.notificationsEnabled, showToast, updateSetting]);
+
   const handleLocalCommand = useCallback(
     async (userText) => {
       const quickReminder = resolveQuickReminder(userText);
       if (quickReminder) {
+        await ensureReminderNotificationPermission();
+
         const reminderData = {
           title: quickReminder.title,
           time: quickReminder.time,
+          dueTime: quickReminder.dueTime,
+          delayValue: quickReminder.delayValue,
+          delayUnit: quickReminder.delayUnit,
+          status: quickReminder.status,
           repeat: quickReminder.repeat || 'none',
         };
 
@@ -195,7 +221,9 @@ export default function ChatPage() {
       navigate,
       playText,
       settings.autoVoice,
+      settings.notificationsEnabled,
       settings.ttsEnabled,
+      ensureReminderNotificationPermission,
       showToast,
       updateSetting,
       updateSettings,
@@ -243,9 +271,11 @@ export default function ChatPage() {
           addTask(data);
           showToast('Vazifa saqlandi', 'success');
         } else if (type === 'reminder' && data?.title) {
+          await ensureReminderNotificationPermission();
           addReminder(data);
           showToast('Eslatma saqlandi', 'success');
         } else if (type === 'meeting' && data?.title) {
+          await ensureReminderNotificationPermission();
           addReminder({ ...data, repeat: 'none' });
           showToast('Uchrashuv saqlandi', 'success');
         } else if (type === 'money' && data?.amount !== undefined) {
@@ -292,6 +322,7 @@ export default function ChatPage() {
       settings.ttsEnabled,
       settings.userName,
       settings.userTitle,
+      ensureReminderNotificationPermission,
       showToast,
     ]
   );

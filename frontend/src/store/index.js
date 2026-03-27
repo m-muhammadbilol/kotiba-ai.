@@ -22,6 +22,25 @@ function createId(prefix = 'item') {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function normalizeReminderRecord(reminder = {}) {
+  const dueTime = reminder.dueTime || reminder.time || new Date().toISOString();
+  const isTriggered = Boolean(reminder.triggeredAt) || reminder.status === 'bajarildi';
+
+  return {
+    id: reminder.id || createId('reminder'),
+    title: reminder.title || 'Eslatma',
+    time: dueTime,
+    dueTime,
+    delayValue: reminder.delayValue ?? null,
+    delayUnit: reminder.delayUnit || '',
+    repeat: reminder.repeat || 'none',
+    active: typeof reminder.active === 'boolean' ? reminder.active : !isTriggered,
+    status: reminder.status || (isTriggered ? 'bajarildi' : 'kutilmoqda'),
+    triggeredAt: reminder.triggeredAt || null,
+    createdAt: reminder.createdAt || new Date().toISOString(),
+  };
+}
+
 // ─── Messages Store ───────────────────────────────────────────────────────────
 export const useMessageStore = create(
   persist(
@@ -87,14 +106,7 @@ export const useReminderStore = create(
       reminders: [],
       triggeredIds: [],
       addReminder: (reminder) => {
-        const newReminder = {
-          id: createId('reminder'),
-          title: reminder.title || 'Eslatma',
-          time: reminder.time || new Date().toISOString(),
-          repeat: reminder.repeat || 'none',
-          active: true,
-          createdAt: new Date().toISOString(),
-        };
+        const newReminder = normalizeReminderRecord(reminder);
         set((s) => ({ reminders: [newReminder, ...s.reminders] }));
         return newReminder;
       },
@@ -113,6 +125,16 @@ export const useReminderStore = create(
       },
       markTriggered: (id) => {
         set((s) => ({
+          reminders: s.reminders.map((r) =>
+            r.id === id
+              ? {
+                  ...r,
+                  status: 'bajarildi',
+                  triggeredAt: new Date().toISOString(),
+                  active: r.repeat !== 'none',
+                }
+              : r
+          ),
           triggeredIds: [...new Set([...s.triggeredIds, id])],
         }));
       },
@@ -121,7 +143,7 @@ export const useReminderStore = create(
         const reminder = reminders.find((r) => r.id === id);
         if (!reminder) return;
 
-        let nextTime = new Date(reminder.time);
+        let nextTime = new Date(reminder.dueTime || reminder.time);
         if (reminder.repeat === 'daily') {
           nextTime.setDate(nextTime.getDate() + 1);
         } else if (reminder.repeat === 'weekly') {
@@ -130,7 +152,16 @@ export const useReminderStore = create(
 
         set((s) => ({
           reminders: s.reminders.map((r) =>
-            r.id === id ? { ...r, time: nextTime.toISOString() } : r
+            r.id === id
+              ? {
+                  ...r,
+                  time: nextTime.toISOString(),
+                  dueTime: nextTime.toISOString(),
+                  status: 'kutilmoqda',
+                  triggeredAt: null,
+                  active: true,
+                }
+              : r
           ),
           triggeredIds: s.triggeredIds.filter((tid) => tid !== id),
         }));
@@ -139,7 +170,23 @@ export const useReminderStore = create(
       getReminders: () => get().reminders,
       getTriggeredIds: () => get().triggeredIds,
     }),
-    { name: 'kotiba-reminders' }
+    {
+      name: 'kotiba-reminders',
+      merge: (persistedState, currentState) => {
+        const mergedState = {
+          ...currentState,
+          ...(persistedState || {}),
+        };
+
+        return {
+          ...mergedState,
+          reminders: Array.isArray(mergedState.reminders)
+            ? mergedState.reminders.map((reminder) => normalizeReminderRecord(reminder))
+            : [],
+          triggeredIds: Array.isArray(mergedState.triggeredIds) ? mergedState.triggeredIds : [],
+        };
+      },
+    }
   )
 );
 

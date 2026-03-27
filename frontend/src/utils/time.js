@@ -66,14 +66,92 @@ function hasReminderIntent(text = '') {
   return /\beslat(ib|aman|asan|adi|sin|gin|ing|ay)?\b/i.test(String(text || ''));
 }
 
-function extractWhenLabel(text = '', isoTime = '') {
+const NUMBER_WORDS = {
+  bir: 1,
+  ikki: 2,
+  uch: 3,
+  tort: 4,
+  "to'rt": 4,
+  toqqiz: 9,
+  "to'qqiz": 9,
+  besh: 5,
+  olti: 6,
+  yetti: 7,
+  sakkiz: 8,
+  on: 10,
+  "o'n": 10,
+};
+
+function parseNumberToken(value) {
+  const rawValue = String(value || '').trim().toLowerCase();
+  if (/^\d+$/.test(rawValue)) {
+    return Number(rawValue);
+  }
+
+  return NUMBER_WORDS[rawValue] || 0;
+}
+
+function normalizeDelayUnit(unit = '') {
+  const rawUnit = normalizeNaturalText(unit);
+  if (/sek|son/.test(rawUnit)) return 'second';
+  if (/min|daq/.test(rawUnit)) return 'minute';
+  if (/soat/.test(rawUnit)) return 'hour';
+  if (/kun/.test(rawUnit)) return 'day';
+  if (/hafta/.test(rawUnit)) return 'week';
+  return '';
+}
+
+function getDurationLabel(value, unit) {
+  const count = Number(value) || 0;
+
+  if (unit === 'second') {
+    return `${count} ${count === 1 ? 'sekund' : 'sekund'}dan keyin`;
+  }
+
+  if (unit === 'minute') {
+    return `${count} ${count === 1 ? 'minut' : 'minut'}dan keyin`;
+  }
+
+  if (unit === 'hour') {
+    return `${count} ${count === 1 ? 'soat' : 'soat'}dan keyin`;
+  }
+
+  if (unit === 'day') {
+    return `${count} ${count === 1 ? 'kun' : 'kun'}dan keyin`;
+  }
+
+  if (unit === 'week') {
+    return `${count} ${count === 1 ? 'hafta' : 'hafta'}dan keyin`;
+  }
+
+  return '';
+}
+
+function extractRelativeDelay(text = '') {
   const normalized = normalizeNaturalText(text);
-  const relativeMatch = normalized.match(
-    /(\d+)\s*(sekund|soniya|sek|minut|daqiqa|min|soat|kun|hafta)\s*(dan keyin|keyin)/
+  const match = normalized.match(
+    /\b(\d+|bir|ikki|uch|tort|to'rt|besh|olti|yetti|sakkiz|toqqiz|to'qqiz|on|o'n)\s*(sekund|soniya|sek|minut|daqiqa|min|soat|kun|hafta)\s*(dan keyin|keyin)\b/
   );
 
-  if (relativeMatch) {
-    return `${relativeMatch[1]} ${relativeMatch[2]}dan keyin`;
+  if (!match) return null;
+
+  const delayValue = parseNumberToken(match[1]);
+  const delayUnit = normalizeDelayUnit(match[2]);
+  if (!delayValue || !delayUnit) return null;
+
+  return {
+    delayValue,
+    delayUnit,
+    label: getDurationLabel(delayValue, delayUnit),
+  };
+}
+
+function extractWhenLabel(text = '', isoTime = '') {
+  const normalized = normalizeNaturalText(text);
+  const relativeDelay = extractRelativeDelay(text);
+
+  if (relativeDelay) {
+    return relativeDelay.label;
   }
 
   if (normalized.includes('ertaga')) {
@@ -183,14 +261,16 @@ export function isOverdue(dateStr) {
 }
 
 function parseDurationToMs(amount, unit) {
-  const count = Number(amount);
+  const count = parseNumberToken(amount);
   if (!Number.isFinite(count) || count <= 0) return 0;
 
-  if (/sek|son/i.test(unit)) return count * 1000;
-  if (/min|daq/i.test(unit)) return count * 60 * 1000;
-  if (/soat/i.test(unit)) return count * 60 * 60 * 1000;
-  if (/kun/i.test(unit)) return count * 24 * 60 * 60 * 1000;
-  if (/hafta/i.test(unit)) return count * 7 * 24 * 60 * 60 * 1000;
+  const normalizedUnit = normalizeDelayUnit(unit);
+
+  if (normalizedUnit === 'second') return count * 1000;
+  if (normalizedUnit === 'minute') return count * 60 * 1000;
+  if (normalizedUnit === 'hour') return count * 60 * 60 * 1000;
+  if (normalizedUnit === 'day') return count * 24 * 60 * 60 * 1000;
+  if (normalizedUnit === 'week') return count * 7 * 24 * 60 * 60 * 1000;
 
   return 0;
 }
@@ -218,12 +298,10 @@ export function parseRelativeTime(text, baseDate = getCurrentTashkentDate()) {
   const normalized = normalizeNaturalText(sourceText);
   const now = new Date(baseDate);
 
-  const durationMatch = normalized.match(
-    /(\d+)\s*(sekund|soniya|sek|minut|daqiqa|min|soat|kun|hafta)(?:dan|dan keyin| keyin)?/
-  );
+  const relativeDelay = extractRelativeDelay(sourceText);
 
-  if (durationMatch && /keyin/.test(normalized)) {
-    const durationMs = parseDurationToMs(durationMatch[1], durationMatch[2]);
+  if (relativeDelay) {
+    const durationMs = parseDurationToMs(relativeDelay.delayValue, relativeDelay.delayUnit);
     if (durationMs > 0) {
       return new Date(now.getTime() + durationMs).toISOString();
     }
@@ -274,16 +352,22 @@ export function extractReminderTitle(text) {
   if (!sourceText) return '';
 
   return sourceText
-    .replace(/\b\d+\s*(sekund|soniya|sek|minut|daqiqa|min|soat|kun|hafta)\s*(dan keyin|keyin)\b/gi, '')
+    .replace(/\b(\d+|bir|ikki|uch|tort|to'rt|besh|olti|yetti|sakkiz|toqqiz|to'qqiz|on|o'n)\s*(sekund|soniya|sek|minut|daqiqa|min|soat|kun|hafta)\s*(dan keyin|keyin)\b/gi, '')
     .replace(/\b(ertaga|bugun)\b/gi, '')
     .replace(/\bsoat\s*\d{1,2}(?::\d{1,2})?\b/gi, '')
+    .replace(/\bdeb\b/gi, '')
+    .replace(/\b(meni|menga|meni ham|meniyam)\b/gi, '')
     .replace(/\b(eslatib qoy|eslatib qo'y|eslatib qoying|eslatib qo'ying|eslat|eslatsin|eslatgin|eslatib tur)\b/gi, '')
+    .replace(/ishimni$/i, 'ish')
+    .replace(/ishingizni$/i, 'ish')
+    .replace(/ishni$/i, 'ish')
     .replace(/\s+/g, ' ')
     .replace(/^[,.\-:;\s]+|[,.\-:;\s]+$/g, '')
     .trim();
 }
 
 export function normalizeReminderData(data = {}, userText = '') {
+  const relativeDelay = extractRelativeDelay(data.interval || data.time || userText);
   const normalizedTime =
     tryParseDate(data.time) ||
     parseRelativeTime(data.interval) ||
@@ -299,6 +383,11 @@ export function normalizeReminderData(data = {}, userText = '') {
     ...data,
     title: normalizedTitle,
     time: normalizedTime || data.time || '',
+    dueTime: normalizedTime || data.dueTime || data.time || '',
+    delayValue: data.delayValue || relativeDelay?.delayValue || null,
+    delayUnit: data.delayUnit || relativeDelay?.delayUnit || '',
+    status: data.status || 'kutilmoqda',
+    triggeredAt: data.triggeredAt || null,
     repeat: data.repeat || 'none',
   };
 }
@@ -320,4 +409,34 @@ export function resolveQuickReminder(userText = '') {
     ...normalizedReminder,
     response,
   };
+}
+
+export function getReminderDueTime(reminder = {}) {
+  return reminder.dueTime || reminder.time || '';
+}
+
+export function getReminderStatus(reminder = {}) {
+  if (reminder.status) return reminder.status;
+  if (reminder.triggeredAt || reminder.active === false) return 'bajarildi';
+  return 'kutilmoqda';
+}
+
+export function formatTimeRemaining(dateStr) {
+  const targetDate = toDate(dateStr);
+  if (!targetDate) return '';
+
+  const diffMs = targetDate.getTime() - Date.now();
+  if (diffMs <= 0) return 'Vaqti keldi';
+
+  const totalSeconds = Math.ceil(diffMs / 1000);
+  if (totalSeconds < 60) return `${totalSeconds} soniya qoldi`;
+
+  const totalMinutes = Math.ceil(totalSeconds / 60);
+  if (totalMinutes < 60) return `${totalMinutes} daqiqa qoldi`;
+
+  const totalHours = Math.ceil(totalMinutes / 60);
+  if (totalHours < 24) return `${totalHours} soat qoldi`;
+
+  const totalDays = Math.ceil(totalHours / 24);
+  return `${totalDays} kun qoldi`;
 }
