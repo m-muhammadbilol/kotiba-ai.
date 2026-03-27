@@ -164,7 +164,7 @@ export default function ChatInput({
                     onKeyDown={handleKeyDown}
                     onFocus={() => setIsFocused(true)}
                     onBlur={() => setIsFocused(false)}
-                    placeholder="Xabar yozing..."
+                    placeholder="Masalan, 1 minutdan keyin eslat..."
                     rows={1}
                     disabled={textareaDisabled}
                     className="max-h-[72px] min-h-[20px] w-full resize-none border-0 bg-transparent px-0 py-0 text-[14px] leading-5 text-slate-900 placeholder:text-slate-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 dark:text-surface-50 dark:placeholder:text-surface-400"

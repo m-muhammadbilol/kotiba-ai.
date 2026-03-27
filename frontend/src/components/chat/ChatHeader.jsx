@@ -30,12 +30,15 @@ export default function ChatHeader({
             <span className="text-sm font-black text-white">K</span>
           </div>
           <div>
+            <div className="mb-1 inline-flex items-center rounded-full border border-primary-100 bg-primary-50/85 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-primary-600 dark:border-primary-900/60 dark:bg-primary-950/30 dark:text-primary-300">
+              Voice-first assistant
+            </div>
             <h1 className="text-base font-extrabold leading-tight text-[var(--text)]">
               {aiName || 'Kotiba'}
             </h1>
             <div className="mt-1 flex items-center gap-2 text-xs font-medium text-[var(--text-muted)]">
               <span className="h-2 w-2 rounded-full bg-emerald-500" />
-              <span>Faol</span>
+              <span>Tushunadi va bajaradi</span>
               <span>•</span>
               <span>Toshkent {currentTime}</span>
             </div>

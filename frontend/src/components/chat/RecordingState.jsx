@@ -29,7 +29,12 @@ export default function RecordingState({
           </div>
 
           <div className="min-w-0 flex-1 rounded-full bg-slate-100/80 px-2.5 py-1.5 dark:bg-surface-800/70">
-            <VoiceWaveform tone="recording" />
+            <div className="flex items-center gap-2">
+              <VoiceWaveform tone="recording" />
+              <span className="truncate text-[12px] font-medium text-slate-500 dark:text-surface-300">
+                Gapiring, tushunib olyapman...
+              </span>
+            </div>
           </div>
 
           <motion.button
@@ -57,7 +62,7 @@ export default function RecordingState({
           <div className="flex min-w-[126px] items-center gap-2">
             <Loader2 size={15} className="animate-spin text-primary-500" />
             <span className="truncate text-[13px] font-medium text-slate-700 dark:text-surface-200">
-              Matnga o‘tkazilmoqda...
+              Buyruqni tushunyapman...
             </span>
           </div>
 
