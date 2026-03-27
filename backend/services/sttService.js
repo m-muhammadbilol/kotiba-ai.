@@ -3,6 +3,8 @@ import FormData from 'form-data';
 import { config } from '../config/index.js';
 
 const EXTERNAL_FETCH_TIMEOUT_MS = 20000;
+const BLOCKING_FETCH_TIMEOUT_MS = 90000;
+const MAX_BLOCKING_AUDIO_SECONDS = 60;
 
 function normalizeMimeType(mimeType) {
   if (!mimeType || typeof mimeType !== 'string') return 'audio/webm';
@@ -105,9 +107,9 @@ function buildPollingUrls(taskId) {
   ]);
 }
 
-async function fetchWithTimeout(url, options = {}) {
+async function fetchWithTimeout(url, options = {}, timeoutMs = EXTERNAL_FETCH_TIMEOUT_MS) {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), EXTERNAL_FETCH_TIMEOUT_MS);
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     return await fetch(url, { ...options, signal: controller.signal });
@@ -115,7 +117,7 @@ async function fetchWithTimeout(url, options = {}) {
     if (err?.name === 'AbortError') {
       const timeoutError = new Error('STT serveridan javob kechikdi');
       timeoutError.status = 504;
-      timeoutError.details = `${url} ${EXTERNAL_FETCH_TIMEOUT_MS}ms ichida javob bermadi`;
+      timeoutError.details = `${url} ${timeoutMs}ms ichida javob bermadi`;
       throw timeoutError;
     }
 
@@ -231,24 +233,34 @@ function normalizeStatusResult(payload, taskId) {
 }
 
 export const sttService = {
-  async startTranscription({ audioBuffer, mimeType, filename }) {
+  async startTranscription({ audioBuffer, mimeType, filename, durationSeconds }) {
     if (!config.uzbekVoiceApiKey) {
       throw new Error('UzbekVoice API key sozlanmagan');
     }
 
     const form = new FormData();
     const normalizedMimeType = normalizeMimeType(mimeType);
+    const normalizedDurationSeconds = Number.isFinite(Number(durationSeconds))
+      ? Number(durationSeconds)
+      : null;
+    const shouldUseBlocking =
+      normalizedDurationSeconds === null || normalizedDurationSeconds <= MAX_BLOCKING_AUDIO_SECONDS;
+    const resolvedFilename = resolveFilename(filename, normalizedMimeType);
+
     console.log('[STT] init:start', {
       mimeType: normalizedMimeType,
-      filename: resolveFilename(filename, normalizedMimeType),
+      filename: resolvedFilename,
       size: audioBuffer?.length || 0,
+      durationSeconds: normalizedDurationSeconds,
+      blocking: shouldUseBlocking,
     });
+
     form.append('file', audioBuffer, {
-      filename: resolveFilename(filename, normalizedMimeType),
+      filename: resolvedFilename,
       contentType: normalizedMimeType,
     });
     form.append('language', 'uz');
-    form.append('blocking', 'false');
+    form.append('blocking', shouldUseBlocking ? 'true' : 'false');
     form.append('return_offsets', 'false');
     form.append('run_diarization', 'false');
 
@@ -256,7 +268,7 @@ export const sttService = {
       method: 'POST',
       headers: await getMultipartHeaders(form),
       body: form,
-    });
+    }, shouldUseBlocking ? BLOCKING_FETCH_TIMEOUT_MS : EXTERNAL_FETCH_TIMEOUT_MS);
 
     if (!initRes.ok) {
       const errText = await initRes.text();
@@ -271,6 +283,39 @@ export const sttService = {
     }
 
     const initData = await initRes.json();
+
+    console.log('[STT] init:raw', {
+      blocking: shouldUseBlocking,
+      state: getPayloadState(initData),
+      taskId: resolveTaskId(initData),
+      hasText: Boolean(extractTranscript(initData)),
+    });
+
+    if (shouldUseBlocking) {
+      const transcript = extractTranscript(initData);
+      const state = getPayloadState(initData);
+
+      if (transcript) {
+        return {
+          state: 'completed',
+          text: transcript,
+          taskId: resolveTaskId(initData),
+        };
+      }
+
+      if (isFailedState(state)) {
+        const error = new Error('STT serveridan xato qaytdi');
+        error.status = 502;
+        error.details = JSON.stringify(initData);
+        throw error;
+      }
+
+      const error = new Error('STT matn qaytarmadi');
+      error.status = 502;
+      error.details = JSON.stringify(initData);
+      throw error;
+    }
+
     return normalizeInitResult(initData);
   },
 

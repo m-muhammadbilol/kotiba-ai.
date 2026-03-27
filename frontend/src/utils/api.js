@@ -153,11 +153,15 @@ export async function apiPostAudio(path, body) {
   });
   if (!res.ok) {
     let errMsg = `TTS xatosi: ${res.status}`;
+    let errData = null;
     try {
-      const errData = await res.json();
+      errData = await res.json();
       if (errData.error) errMsg = errData.error;
     } catch {}
-    throw new Error(errMsg);
+    const error = new Error(errMsg);
+    error.status = res.status;
+    error.data = errData;
+    throw error;
   }
   return res.blob();
 }

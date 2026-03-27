@@ -1,9 +1,6 @@
 import { useRef, useCallback, useEffect } from 'react';
 import { useUIStore } from '../store/index.js';
-import { apiGet, apiPostFormData } from '../utils/api.js';
-
-const STT_POLL_INTERVAL_MS = 1500;
-const STT_MAX_POLL_ATTEMPTS = 60;
+import { apiPostFormData } from '../utils/api.js';
 
 function normalizeMimeType(mimeType) {
   if (!mimeType || typeof mimeType !== 'string') return 'audio/webm';
@@ -24,6 +21,7 @@ export function useVoice() {
   const chunksRef = useRef([]);
   const streamRef = useRef(null);
   const stopModeRef = useRef('send');
+  const recordingStartedAtRef = useRef(0);
 
   const { setRecording, setProcessingSTT, showToast } = useUIStore();
 
@@ -36,54 +34,22 @@ export function useVoice() {
     }
   }, []);
 
-  const transcribeWithBackend = useCallback(
-    async (blob, mimeType) => {
-      const formData = new FormData();
-      const normalizedMimeType = normalizeMimeType(mimeType);
-      const extension = getFileExtension(normalizedMimeType);
-      formData.append('file', blob, `recording.${extension}`);
-      console.log('[STT] request:start', {
-        mimeType: normalizedMimeType,
-        extension,
-        blobSize: blob.size,
-      });
-      return apiPostFormData('/stt', formData);
-    },
-    []
-  );
+  const transcribeWithBackend = useCallback(async (blob, mimeType, durationSeconds) => {
+    const formData = new FormData();
+    const normalizedMimeType = normalizeMimeType(mimeType);
+    const extension = getFileExtension(normalizedMimeType);
 
-  const pollTranscript = useCallback(async (taskId) => {
-    const normalizedTaskId = String(taskId || '').trim();
-    if (!normalizedTaskId) return '';
+    formData.append('file', blob, `recording.${extension}`);
+    formData.append('durationSeconds', String(durationSeconds || 0));
 
-    for (let attempt = 0; attempt < STT_MAX_POLL_ATTEMPTS; attempt += 1) {
-      await new Promise((resolve) => setTimeout(resolve, STT_POLL_INTERVAL_MS));
+    console.log('[STT] request:start', {
+      mimeType: normalizedMimeType,
+      extension,
+      blobSize: blob.size,
+      durationSeconds,
+    });
 
-      console.log('[STT] poll:attempt', {
-        taskId: normalizedTaskId,
-        attempt: attempt + 1,
-        maxAttempts: STT_MAX_POLL_ATTEMPTS,
-      });
-      const result = await apiGet(`/stt/status/${encodeURIComponent(normalizedTaskId)}`);
-      const transcript = typeof result?.text === 'string' ? result.text.trim() : '';
-      const state = String(result?.state || '').toLowerCase();
-
-      console.log('[STT] poll:result', {
-        taskId: normalizedTaskId,
-        state,
-        hasText: Boolean(transcript),
-      });
-
-      if (transcript) {
-        return transcript;
-      }
-
-      if (state === 'completed' && !transcript) {
-        throw new Error('Ovoz tanib bo\'lmadi, qayta urinib ko\'ring');
-      }
-    }
-
-    throw new Error('STT hali tayyor emas, birozdan keyin qayta urinib ko‘ring');
+    return apiPostFormData('/stt', formData);
   }, []);
 
   const startRecording = useCallback(async () => {
@@ -99,24 +65,27 @@ export function useVoice() {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
       chunksRef.current = [];
+      recordingStartedAtRef.current = Date.now();
 
       const mimeType = getSupportedMimeType();
       const options = mimeType ? { mimeType } : {};
       const recorder = new MediaRecorder(stream, options);
+
       console.log('[VOICE] recorder:start', {
         requestedMimeType: mimeType || 'browser-default',
         streamTracks: stream.getAudioTracks().length,
       });
+
       mediaRecorderRef.current = recorder;
       stopModeRef.current = 'send';
 
-      recorder.ondataavailable = (e) => {
-        if (e.data && e.data.size > 0) {
+      recorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
           console.log('[VOICE] recorder:chunk', {
-            size: e.data.size,
-            type: e.data.type,
+            size: event.data.size,
+            type: event.data.type,
           });
-          chunksRef.current.push(e.data);
+          chunksRef.current.push(event.data);
         }
       };
 
@@ -136,11 +105,11 @@ export function useVoice() {
       } else if (err.name === 'NotFoundError') {
         showToast('Mikrofon topilmadi. Qurilmangizni tekshiring.', 'error');
       } else {
-        showToast('Mikrofon ishga tushmadi: ' + err.message, 'error');
+        showToast(`Mikrofon ishga tushmadi: ${err.message}`, 'error');
       }
       return false;
     }
-  }, [unlockAudioContext, setRecording, showToast, stopStream]);
+  }, [setRecording, showToast, stopStream, unlockAudioContext]);
 
   const finalizeRecording = useCallback(
     (mode = 'send') =>
@@ -161,10 +130,15 @@ export function useVoice() {
 
         recorder.onstop = async () => {
           const currentMode = stopModeRef.current;
+          const durationSeconds = recordingStartedAtRef.current
+            ? Math.max(1, Math.round((Date.now() - recordingStartedAtRef.current) / 1000))
+            : 0;
+
           setRecording(false);
           stopStream();
           mediaRecorderRef.current = null;
           stopModeRef.current = 'send';
+          recordingStartedAtRef.current = 0;
 
           if (currentMode === 'cancel') {
             chunksRef.current = [];
@@ -174,7 +148,7 @@ export function useVoice() {
 
           if (chunksRef.current.length === 0) {
             chunksRef.current = [];
-            showToast('Ovoz yozilmadi', 'warning');
+            showToast('Audio yuborilmadi', 'warning');
             resolve(null);
             return;
           }
@@ -187,6 +161,7 @@ export function useVoice() {
             stopMode: currentMode,
             mimeType,
             blobSize: blob.size,
+            durationSeconds,
           });
 
           if (blob.size < 1000) {
@@ -198,31 +173,22 @@ export function useVoice() {
           setProcessingSTT(true);
 
           try {
-            const result = await transcribeWithBackend(blob, mimeType);
+            const result = await transcribeWithBackend(blob, mimeType, durationSeconds);
             const transcript = typeof result?.text === 'string' ? result.text.trim() : '';
-            const taskId = typeof result?.taskId === 'string' ? result.taskId.trim() : '';
 
             console.log('[STT] request:done', {
               success: result?.success,
               state: result?.state,
-              taskId,
               hasText: Boolean(transcript),
             });
 
             if (result.success && transcript) {
               resolve(transcript);
-            } else if (result.success && taskId) {
-              const polledTranscript = await pollTranscript(taskId);
-              if (polledTranscript) {
-                resolve(polledTranscript);
-              } else {
-                showToast('Ovoz tanib bo\'lmadi, qayta urinib ko\'ring', 'error');
-                resolve(null);
-              }
-            } else {
-              showToast('Ovoz tanib bo\'lmadi, qayta urinib ko\'ring', 'error');
-              resolve(null);
+              return;
             }
+
+            showToast('Ovoz matnga aylantirilmadi', 'error');
+            resolve(null);
           } catch (err) {
             console.error('[STT ERROR]', {
               message: err?.message,
@@ -233,9 +199,13 @@ export function useVoice() {
             const errorMessage =
               err?.status === 415
                 ? 'Audio formati qo‘llanmadi'
-                : err?.status >= 500
-                  ? 'Serverda xatolik yuz berdi'
-                  : err?.message || 'Server STT ishlamadi. Qayta urinib ko\'ring.';
+                : err?.status === 504
+                  ? 'STT serveri javob bermadi'
+                  : err?.status === 502
+                    ? 'Ovoz matnga aylantirilmadi'
+                    : err?.status >= 500
+                      ? 'Serverda xatolik yuz berdi'
+                      : err?.message || 'Server STT ishlamadi. Qayta urinib ko\'ring.';
 
             showToast(errorMessage, 'error');
             resolve(null);
@@ -246,11 +216,10 @@ export function useVoice() {
 
         recorder.stop();
       }),
-    [pollTranscript, setProcessingSTT, setRecording, showToast, stopStream, transcribeWithBackend]
+    [setProcessingSTT, setRecording, showToast, stopStream, transcribeWithBackend]
   );
 
   const stopRecording = useCallback(() => finalizeRecording('send'), [finalizeRecording]);
-
   const cancelRecording = useCallback(() => finalizeRecording('cancel'), [finalizeRecording]);
 
   useEffect(() => {
@@ -269,8 +238,10 @@ function getSupportedMimeType() {
     'audio/ogg;codecs=opus',
     'audio/mp4',
   ];
+
   for (const type of types) {
     if (MediaRecorder.isTypeSupported(type)) return type;
   }
+
   return null;
 }

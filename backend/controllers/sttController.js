@@ -23,12 +23,14 @@ export async function transcribeAudio(req, res) {
       originalname: uploadedFile.originalname,
       mimetype: uploadedFile.mimetype,
       size: uploadedFile.size || uploadedFile.buffer?.length || 0,
+      durationSeconds: req.body?.durationSeconds || null,
     });
 
     const result = await sttService.startTranscription({
       audioBuffer: uploadedFile.buffer,
       mimeType: uploadedFile.mimetype || 'audio/webm',
       filename: uploadedFile.originalname || 'recording.webm',
+      durationSeconds: req.body?.durationSeconds,
     });
 
     return res.status(result.state === 'completed' ? 200 : 202).json({
