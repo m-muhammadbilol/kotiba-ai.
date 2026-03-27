@@ -53,6 +53,8 @@ function ActionCard({ type, data }) {
       data.theme ? `Mavzu: ${data.theme}` : null,
       data.user_name || data.userName ? `Murojaat: ${data.user_name || data.userName}` : null,
       data.fontSize ? `Shrift: ${data.fontSize}` : null,
+      data.assistantRole ? `Rol: ${data.assistantRole}` : null,
+      data.speechStyle ? `Muomala: ${data.speechStyle}` : null,
     ].filter(Boolean);
 
     return (

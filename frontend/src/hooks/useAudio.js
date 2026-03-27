@@ -85,6 +85,17 @@ export function useAudio() {
       if (!settings.ttsEnabled) return;
       if (!text || text.trim().length === 0) return;
 
+      const preferBrowserFirst = options.preferBrowserFirst !== false;
+
+      if (preferBrowserFirst && supportsBrowserTts()) {
+        try {
+          await playWithBrowserTts(text);
+          return;
+        } catch (browserErr) {
+          console.error('[BROWSER TTS ERROR]', browserErr);
+        }
+      }
+
       try {
         const blob = await apiPostAudio('/tts', {
           text,
@@ -122,7 +133,7 @@ export function useAudio() {
         console.error('[TTS ERROR]', err);
       }
 
-      if (supportsBrowserTts()) {
+      if (!preferBrowserFirst && supportsBrowserTts()) {
         try {
           await playWithBrowserTts(text);
           return;

@@ -5,6 +5,8 @@ const DEFAULT_OPENAI_MODEL = 'gpt-4.1-mini';
 
 function buildSystemPrompt(settings) {
   const aiName = settings.aiName || 'Kotiba';
+  const assistantRole = settings.assistantRole || 'kotiba';
+  const speechStyle = settings.speechStyle || 'sizlash';
   const userName = settings.userName || 'foydalanuvchi';
   const userTitle = settings.userTitle || '';
   const fullUserName = userTitle ? `${userTitle} ${userName}` : userName;
@@ -18,11 +20,26 @@ function buildSystemPrompt(settings) {
     rasmiy: 'Rasmiy va hurmatli tonda gaplashing.',
   }[responseStyle] || 'Natural tonda gaplashing.';
 
+  const roleGuide = {
+    kotiba: 'professional, xotirjam, aniq va tartibli bo\'l. Formal va ishonchli gapir.',
+    dost: 'do\'stona, yengil, samimiy va erkin bo\'l. Tabiiy hazil bo\'lishi mumkin, lekin oshirib yuborma.',
+    sevgilim: 'iliq, g\'amxo\'r va muloyim bo\'l. Jonim, azizim kabi yumshoq so\'zlardan tabiiy foydalan, cringe bo\'lma, explicit content qilma.',
+    ustoz: 'aqlli, strukturalangan, foydali va tarbiyaviy ohangda bo\'l. Qisqa maslahatlar ber.',
+    pick_me: 'yengil o\'ynoqi, latif, e\'tiborli bo\'l. Flirtga o\'xshash yumshoq kayfiyat bo\'lishi mumkin, lekin chegaradan chiqma.',
+  }[assistantRole] || 'natural va foydali bo\'l.';
+
+  const speechGuide =
+    speechStyle === 'senlash'
+      ? 'FAQAT senlash ishlat. Hech qachon "siz", "o\'zingiz", "qiling" kabi sizlash shakllarini ishlatma.'
+      : 'FAQAT sizlash ishlat. Hech qachon "sen", "o\'zing", "qil" kabi senlash shakllarini ishlatma.';
+
   return `You are ${aiName} AI — a voice-first intelligent assistant.
 
 Your job is NOT to chat.
 Your job is to UNDERSTAND and ACT.
 
+Tanlangan rol: ${assistantRole}.
+Tanlangan muomala uslubi: ${speechStyle}.
 Foydalanuvchining ismi: ${fullUserName}.
 Unga ${fullUserName} deb murojaat qil.
 
@@ -58,6 +75,19 @@ UNDERSTANDING RULES
 - "10 ga sur" -> oldingi mos task/reminderni yangilashga urin
 - "bir minutdan keyin", "2 minutdan keyin", "10 sekunddan keyin", "1 soatdan keyin", "5 daqiqadan keyin" kabi iboralarni to'g'ri tushun
 - "dark mode", "qorong'u rejim", "light mode", "yorug' rejim" -> command/settings intent
+
+====================================
+ROLE + SPEECH SYSTEM
+====================================
+
+- Role: ${assistantRole}
+- Speech style: ${speechStyle}
+- ${roleGuide}
+- ${speechGuide}
+- Sizlash va senlashni HECH QACHON aralashtirma
+- Rolni buzma
+- Bir xil iborani takrorlayverma
+- Emotsiyani tabiiy ushla
 
 ====================================
 RESPONSE STYLE
@@ -147,6 +177,8 @@ settings:
   "theme": "dark | light | system",
   "fontSize": "kichik | medium | katta",
   "user_name": "ism",
+  "assistantRole": "kotiba | dost | sevgilim | ustoz | pick_me",
+  "speechStyle": "sizlash | senlash",
   "responseStyle": "qisqa | oddiy | batafsil | samimiy | rasmiy"
 }
 

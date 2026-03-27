@@ -79,6 +79,14 @@ export default function ChatPage() {
         updateSetting('responseStyle', data.responseStyle);
       }
 
+      if (data.assistantRole) {
+        updateSetting('assistantRole', data.assistantRole);
+      }
+
+      if (data.speechStyle) {
+        updateSetting('speechStyle', data.speechStyle);
+      }
+
       const nextUserName = data.user_name || data.userName;
       if (nextUserName) {
         updateSetting('userName', nextUserName);
@@ -202,7 +210,7 @@ export default function ChatPage() {
       showToast(responseText, command.toastType || 'success', { speak: !shouldSpeakReply });
 
       if (shouldSpeakReply) {
-        await playText(responseText);
+        void playText(responseText, undefined, { preferBrowserFirst: true, silentFailure: true });
       }
 
       if (nextRoute) {
@@ -235,7 +243,7 @@ export default function ChatPage() {
       setProcessingAI(true);
 
       try {
-        const history = [...messages.slice(-8), { role: 'user', content: userText }].map((message) => ({
+        const history = [...messages.slice(-6), { role: 'user', content: userText }].map((message) => ({
           role: message.role,
           content: message.content,
         }));
@@ -245,6 +253,8 @@ export default function ChatPage() {
           history,
           settings: {
             aiName: settings.aiName,
+            assistantRole: settings.assistantRole,
+            speechStyle: settings.speechStyle,
             userName: settings.userName,
             userTitle: settings.userTitle,
             responseStyle: settings.responseStyle,
@@ -289,7 +299,7 @@ export default function ChatPage() {
         }
 
         if (settings.ttsEnabled && settings.autoVoice && text) {
-          await playText(text);
+          void playText(text, undefined, { preferBrowserFirst: true, silentFailure: true });
         }
       } catch (err) {
         console.error('[AI ERROR]', err);
@@ -317,8 +327,10 @@ export default function ChatPage() {
       playText,
       setProcessingAI,
       settings.aiName,
+      settings.assistantRole,
       settings.autoVoice,
       settings.responseStyle,
+      settings.speechStyle,
       settings.ttsEnabled,
       settings.userName,
       settings.userTitle,

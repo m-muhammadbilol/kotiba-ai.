@@ -129,6 +129,23 @@ export default function SettingsPage() {
     showToast(`Javob uslubi ${val} ga o‘zgardi`, 'success');
   }
 
+  function handleAssistantRoleChange(val) {
+    updateSetting('assistantRole', val);
+    const labels = {
+      kotiba: 'Kotiba',
+      dost: 'Do‘st',
+      sevgilim: 'Sevgilim',
+      ustoz: 'Ustoz',
+      pick_me: 'Pick me',
+    };
+    showToast(`Rol ${labels[val] || val} ga o‘zgardi`, 'success');
+  }
+
+  function handleSpeechStyleChange(val) {
+    updateSetting('speechStyle', val);
+    showToast(val === 'sizlash' ? 'Sizlash yoqildi' : 'Senlash yoqildi', 'success');
+  }
+
   function handleSettingToggle(key, value) {
     updateSetting(key, value);
 
@@ -282,6 +299,52 @@ export default function SettingsPage() {
               placeholder="Ismingiz"
               className="w-28 text-sm text-right bg-transparent text-[var(--text-muted)] font-medium outline-none"
             />
+          </Row>
+        </Section>
+
+        <Section title="Rol va muomala">
+          <Row icon={User} label="Kotiba roli" description="Kotiba sizga qanday xarakterda gapirsin">
+            <div className="grid grid-cols-2 gap-1.5 w-48">
+              {[
+                { value: 'kotiba', label: 'Kotiba' },
+                { value: 'dost', label: 'Do‘st' },
+                { value: 'sevgilim', label: 'Sevgilim' },
+                { value: 'ustoz', label: 'Ustoz' },
+                { value: 'pick_me', label: 'Pick me' },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => handleAssistantRoleChange(opt.value)}
+                  className={`py-1.5 rounded-lg text-xs font-semibold transition-all border ${
+                    settings.assistantRole === opt.value
+                      ? 'bg-primary-50 dark:bg-primary-900/30 text-primary-500 border-primary-200 dark:border-primary-700'
+                      : 'border-[var(--border)] text-[var(--text-muted)]'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </Row>
+          <Row icon={MessageSquare} label="Muomala uslubi" description="Faqat sizlash yoki faqat senlash">
+            <div className="grid grid-cols-2 gap-1.5 w-40">
+              {[
+                { value: 'sizlash', label: 'Sizlash' },
+                { value: 'senlash', label: 'Senlash' },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => handleSpeechStyleChange(opt.value)}
+                  className={`py-1.5 rounded-lg text-xs font-semibold transition-all border ${
+                    settings.speechStyle === opt.value
+                      ? 'bg-primary-50 dark:bg-primary-900/30 text-primary-500 border-primary-200 dark:border-primary-700'
+                      : 'border-[var(--border)] text-[var(--text-muted)]'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </Row>
         </Section>
 

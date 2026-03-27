@@ -7,6 +7,8 @@ const DEFAULT_SETTINGS = {
   theme: 'system',
   fontSize: 'medium',
   aiName: 'Kotiba',
+  assistantRole: 'kotiba',
+  speechStyle: 'sizlash',
   userName: 'Do\'stim',
   userTitle: '',
   ttsEnabled: true,
