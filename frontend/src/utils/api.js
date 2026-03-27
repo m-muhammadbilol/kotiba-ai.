@@ -1,10 +1,33 @@
 const RAW_BASE_URL = String(import.meta.env.VITE_API_URL || '/api').trim();
-const BASE_URL = RAW_BASE_URL.replace(/\/+$/, '') || '/api';
+
+function normalizeBaseUrl(value = '') {
+  const cleaned = String(value || '').trim().replace(/\/+$/, '');
+
+  if (!cleaned) return '/api';
+  if (cleaned === '/api') return cleaned;
+
+  if (/^https?:\/\//i.test(cleaned)) {
+    return /\/api$/i.test(cleaned) ? cleaned : `${cleaned}/api`;
+  }
+
+  return cleaned;
+}
+
+const BASE_URL = normalizeBaseUrl(RAW_BASE_URL);
 
 function normalizePath(path = '') {
-  const value = String(path || '').trim();
+  let value = String(path || '').trim();
+
   if (!value) return '';
-  return `/${value.replace(/^\/+/, '')}`;
+
+  value = value.replace(/^\/+/, '');
+
+  if (value === 'api') return '';
+  if (value.startsWith('api/')) {
+    value = value.slice(4);
+  }
+
+  return `/${value}`;
 }
 
 function buildUrl(path = '') {
