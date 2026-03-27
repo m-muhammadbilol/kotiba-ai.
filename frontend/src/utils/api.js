@@ -40,7 +40,6 @@ export async function apiPost(path, body, options = {}) {
     headers: { 'Content-Type': 'application/json', ...options.headers },
     body: JSON.stringify(body),
     signal: options.signal,
-    credentials: 'include',
   });
   if (!res.ok) {
     let errMsg = `Server xatosi: ${res.status}`;
@@ -58,7 +57,6 @@ export async function apiPostFormData(path, formData, options = {}) {
     method: 'POST',
     body: formData,
     signal: options.signal,
-    credentials: 'include',
   });
   if (!res.ok) {
     let errMsg = `Server xatosi: ${res.status}`;
@@ -76,7 +74,6 @@ export async function apiPostAudio(path, body) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
-    credentials: 'include',
   });
   if (!res.ok) {
     let errMsg = `TTS xatosi: ${res.status}`;
