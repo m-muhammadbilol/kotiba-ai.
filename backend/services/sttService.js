@@ -6,7 +6,7 @@ const EXTERNAL_FETCH_TIMEOUT_MS = 20000;
 const BLOCKING_FETCH_TIMEOUT_MS = 90000;
 const MAX_BLOCKING_AUDIO_SECONDS = 60;
 const BLOCKING_POLL_INTERVAL_MS = 1500;
-const BLOCKING_POLL_TIMEOUT_MS = 45000;
+const BLOCKING_POLL_TIMEOUT_MS = 90000;
 
 function normalizeMimeType(mimeType) {
   if (!mimeType || typeof mimeType !== 'string') return 'audio/webm';

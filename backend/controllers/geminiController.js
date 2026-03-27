@@ -28,9 +28,25 @@ export async function processWithGemini(req, res) {
       });
     }
 
+    if (err?.message?.includes('Gemini API key sozlanmagan')) {
+      return res.status(500).json({
+        success: false,
+        error: 'Gemini API key sozlanmagan',
+        code: 'GEMINI_API_KEY_MISSING',
+      });
+    }
+
+    if (err?.message?.includes('Gemini modeli topilmadi')) {
+      return res.status(500).json({
+        success: false,
+        error: err.message,
+        code: 'GEMINI_MODEL_NOT_FOUND',
+      });
+    }
+
     return res.status(500).json({
       success: false,
-      error: 'AI xizmatida xato yuz berdi',
+      error: err?.message || 'AI xizmatida xato yuz berdi',
       code: err?.code || 'GEMINI_INTERNAL_ERROR',
     });
   }

@@ -56,13 +56,32 @@ function isRetryableNetworkError(error) {
   return message.includes('failed to fetch') || message.includes('networkerror');
 }
 
+function canRetryWithFallback(baseUrl = BASE_URL) {
+  return Boolean(
+    FALLBACK_BASE_URL && FALLBACK_BASE_URL !== baseUrl && /localhost|127\.0\.0\.1/i.test(baseUrl)
+  );
+}
+
 async function fetchWithFallback(path, init = {}, baseUrl = BASE_URL) {
   const requestUrl = buildUrl(path, baseUrl);
 
   try {
-    return await fetch(requestUrl, init);
+    const response = await fetch(requestUrl, init);
+
+    if (canRetryWithFallback(baseUrl) && response.status >= 500) {
+      const fallbackUrl = buildUrl(path, FALLBACK_BASE_URL);
+      console.warn('[API FALLBACK]', {
+        from: requestUrl,
+        to: fallbackUrl,
+        reason: `http ${response.status}`,
+      });
+
+      return fetch(fallbackUrl, init);
+    }
+
+    return response;
   } catch (error) {
-    const canRetry = FALLBACK_BASE_URL && FALLBACK_BASE_URL !== baseUrl && isRetryableNetworkError(error);
+    const canRetry = canRetryWithFallback(baseUrl) && isRetryableNetworkError(error);
 
     if (!canRetry) {
       throw error;
