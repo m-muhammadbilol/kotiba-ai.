@@ -111,6 +111,15 @@ async function fetchWithTimeout(url, options = {}) {
 
   try {
     return await fetch(url, { ...options, signal: controller.signal });
+  } catch (err) {
+    if (err?.name === 'AbortError') {
+      const timeoutError = new Error('STT serveridan javob kechikdi');
+      timeoutError.status = 504;
+      timeoutError.details = `${url} ${EXTERNAL_FETCH_TIMEOUT_MS}ms ichida javob bermadi`;
+      throw timeoutError;
+    }
+
+    throw err;
   } finally {
     clearTimeout(timeoutId);
   }
@@ -120,6 +129,7 @@ async function fetchPollingData(taskId) {
   const pollingUrls = buildPollingUrls(taskId);
 
   for (const pollingUrl of pollingUrls) {
+    console.log('[STT] poll:fetch', { taskId, pollingUrl });
     const pollRes = await fetchWithTimeout(pollingUrl, {
       headers: {
         Authorization: config.uzbekVoiceApiKey,
@@ -131,12 +141,20 @@ async function fetchPollingData(taskId) {
     }
 
     if (pollRes.status === 404) {
+      console.warn('[STT] poll:404', { taskId, pollingUrl });
       continue;
     }
 
     const errText = await pollRes.text();
+    console.error('[STT] poll:error', {
+      taskId,
+      pollingUrl,
+      status: pollRes.status,
+      body: errText,
+    });
     const error = new Error(`STT polling xatosi: ${pollRes.status} - ${errText || pollingUrl}`);
     error.status = pollRes.status;
+    error.details = errText;
     throw error;
   }
 
@@ -147,6 +165,12 @@ function normalizeInitResult(payload) {
   const text = extractTranscript(payload);
   const taskId = resolveTaskId(payload);
   const state = getPayloadState(payload);
+
+  console.log('[STT] init:payload', {
+    taskId,
+    state,
+    hasText: Boolean(text),
+  });
 
   if (text) {
     return {
@@ -179,6 +203,12 @@ function normalizeStatusResult(payload, taskId) {
   const text = extractTranscript(payload);
   const state = getPayloadState(payload);
 
+  console.log('[STT] poll:payload', {
+    taskId,
+    state,
+    hasText: Boolean(text),
+  });
+
   if (text) {
     return {
       state: 'completed',
@@ -208,6 +238,11 @@ export const sttService = {
 
     const form = new FormData();
     const normalizedMimeType = normalizeMimeType(mimeType);
+    console.log('[STT] init:start', {
+      mimeType: normalizedMimeType,
+      filename: resolveFilename(filename, normalizedMimeType),
+      size: audioBuffer?.length || 0,
+    });
     form.append('file', audioBuffer, {
       filename: resolveFilename(filename, normalizedMimeType),
       contentType: normalizedMimeType,
@@ -225,8 +260,13 @@ export const sttService = {
 
     if (!initRes.ok) {
       const errText = await initRes.text();
+      console.error('[STT] init:error', {
+        status: initRes.status,
+        body: errText,
+      });
       const error = new Error(`STT boshlash xatosi: ${initRes.status} - ${errText}`);
       error.status = initRes.status;
+      error.details = errText;
       throw error;
     }
 
@@ -239,8 +279,10 @@ export const sttService = {
       throw new Error('UzbekVoice API key sozlanmagan');
     }
 
+    console.log('[STT] poll:start', { taskId });
     const pollData = await fetchPollingData(taskId);
     if (!pollData) {
+      console.log('[STT] poll:not-ready', { taskId });
       return {
         state: 'processing',
         text: '',

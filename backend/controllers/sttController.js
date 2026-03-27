@@ -18,6 +18,13 @@ export async function transcribeAudio(req, res) {
       });
     }
 
+    console.log('[STT] upload:received', {
+      fieldname: uploadedFile.fieldname,
+      originalname: uploadedFile.originalname,
+      mimetype: uploadedFile.mimetype,
+      size: uploadedFile.size || uploadedFile.buffer?.length || 0,
+    });
+
     const result = await sttService.startTranscription({
       audioBuffer: uploadedFile.buffer,
       mimeType: uploadedFile.mimetype || 'audio/webm',
@@ -35,6 +42,7 @@ export async function transcribeAudio(req, res) {
     return res.status(err?.status || 500).json({
       success: false,
       error: err.message || 'STT xizmatida xato yuz berdi',
+      details: err?.details || err?.originalMessage || '',
     });
   }
 }
@@ -63,6 +71,7 @@ export async function getTranscriptionStatus(req, res) {
     return res.status(err?.status || 500).json({
       success: false,
       error: err.message || 'STT statusini olishda xato yuz berdi',
+      details: err?.details || err?.originalMessage || '',
     });
   }
 }

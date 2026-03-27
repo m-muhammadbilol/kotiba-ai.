@@ -3,7 +3,7 @@ import { useUIStore } from '../store/index.js';
 import { apiGet, apiPostFormData } from '../utils/api.js';
 
 const STT_POLL_INTERVAL_MS = 1500;
-const STT_MAX_POLL_ATTEMPTS = 40;
+const STT_MAX_POLL_ATTEMPTS = 60;
 
 function normalizeMimeType(mimeType) {
   if (!mimeType || typeof mimeType !== 'string') return 'audio/webm';
@@ -42,6 +42,11 @@ export function useVoice() {
       const normalizedMimeType = normalizeMimeType(mimeType);
       const extension = getFileExtension(normalizedMimeType);
       formData.append('file', blob, `recording.${extension}`);
+      console.log('[STT] request:start', {
+        mimeType: normalizedMimeType,
+        extension,
+        blobSize: blob.size,
+      });
       return apiPostFormData('/stt', formData);
     },
     []
@@ -54,9 +59,20 @@ export function useVoice() {
     for (let attempt = 0; attempt < STT_MAX_POLL_ATTEMPTS; attempt += 1) {
       await new Promise((resolve) => setTimeout(resolve, STT_POLL_INTERVAL_MS));
 
+      console.log('[STT] poll:attempt', {
+        taskId: normalizedTaskId,
+        attempt: attempt + 1,
+        maxAttempts: STT_MAX_POLL_ATTEMPTS,
+      });
       const result = await apiGet(`/stt/status/${encodeURIComponent(normalizedTaskId)}`);
       const transcript = typeof result?.text === 'string' ? result.text.trim() : '';
       const state = String(result?.state || '').toLowerCase();
+
+      console.log('[STT] poll:result', {
+        taskId: normalizedTaskId,
+        state,
+        hasText: Boolean(transcript),
+      });
 
       if (transcript) {
         return transcript;
@@ -87,11 +103,19 @@ export function useVoice() {
       const mimeType = getSupportedMimeType();
       const options = mimeType ? { mimeType } : {};
       const recorder = new MediaRecorder(stream, options);
+      console.log('[VOICE] recorder:start', {
+        requestedMimeType: mimeType || 'browser-default',
+        streamTracks: stream.getAudioTracks().length,
+      });
       mediaRecorderRef.current = recorder;
       stopModeRef.current = 'send';
 
       recorder.ondataavailable = (e) => {
         if (e.data && e.data.size > 0) {
+          console.log('[VOICE] recorder:chunk', {
+            size: e.data.size,
+            type: e.data.type,
+          });
           chunksRef.current.push(e.data);
         }
       };
@@ -159,6 +183,12 @@ export function useVoice() {
           const blob = new Blob(chunksRef.current, { type: mimeType });
           chunksRef.current = [];
 
+          console.log('[VOICE] recorder:stop', {
+            stopMode: currentMode,
+            mimeType,
+            blobSize: blob.size,
+          });
+
           if (blob.size < 1000) {
             showToast('Ovoz juda qisqa yoki eshitilmadi', 'warning');
             resolve(null);
@@ -171,6 +201,13 @@ export function useVoice() {
             const result = await transcribeWithBackend(blob, mimeType);
             const transcript = typeof result?.text === 'string' ? result.text.trim() : '';
             const taskId = typeof result?.taskId === 'string' ? result.taskId.trim() : '';
+
+            console.log('[STT] request:done', {
+              success: result?.success,
+              state: result?.state,
+              taskId,
+              hasText: Boolean(transcript),
+            });
 
             if (result.success && transcript) {
               resolve(transcript);
@@ -187,8 +224,20 @@ export function useVoice() {
               resolve(null);
             }
           } catch (err) {
-            console.error('[STT ERROR]', err);
-            showToast(err.message || 'Server STT ishlamadi. Qayta urinib ko\'ring.', 'error');
+            console.error('[STT ERROR]', {
+              message: err?.message,
+              status: err?.status,
+              data: err?.data,
+            });
+
+            const errorMessage =
+              err?.status === 415
+                ? 'Audio formati qo‘llanmadi'
+                : err?.status >= 500
+                  ? 'Serverda xatolik yuz berdi'
+                  : err?.message || 'Server STT ishlamadi. Qayta urinib ko\'ring.';
+
+            showToast(errorMessage, 'error');
             resolve(null);
           } finally {
             setProcessingSTT(false);
