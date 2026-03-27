@@ -6,8 +6,8 @@ const BARS = [10, 14, 8, 16, 11, 7, 13, 9, 15, 10, 6, 12];
 export default function VoiceWaveform({ tone = 'recording' }) {
   const barClass =
     tone === 'recording'
-      ? 'bg-slate-400 dark:bg-surface-300'
-      : 'bg-slate-300 dark:bg-surface-500';
+      ? 'bg-slate-500 dark:bg-[#CBD5E1]'
+      : 'bg-slate-400 dark:bg-[#94A3B8]';
 
   return (
     <div className="flex h-5 items-center gap-[3px] overflow-hidden">

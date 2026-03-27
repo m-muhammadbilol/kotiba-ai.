@@ -108,7 +108,7 @@ export default function ChatInput({
   }
 
   const textareaGlow = isFocused
-    ? '0 0 0 1px rgba(99,102,241,0.16)'
+    ? '0 0 0 1px rgba(99,102,241,0.22)'
     : '0 0 0 0 rgba(0,0,0,0)';
 
   const actionMode = isSending
@@ -130,7 +130,7 @@ export default function ChatInput({
           animate={{
             opacity: disabled && !isRecording ? 0.82 : 1,
           }}
-          className="rounded-[20px] border border-slate-200/90 bg-white/98 px-2.5 py-2 shadow-[0_10px_22px_-20px_rgba(15,23,42,0.24)] backdrop-blur-xl dark:border-surface-700/80 dark:bg-[#1f2937]/98 dark:shadow-[0_10px_18px_-16px_rgba(2,6,23,0.45)]"
+          className="rounded-[20px] border border-[#E5E7EB] bg-[#FFFFFF] px-2.5 py-2 shadow-[0_10px_22px_-20px_rgba(15,23,42,0.18)] backdrop-blur-xl dark:border-[#334155] dark:bg-[#111827] dark:shadow-[0_10px_18px_-16px_rgba(2,6,23,0.42)]"
         >
           <AnimatePresence mode="wait" initial={false}>
             {isRecording || isProcessingSTT ? (
@@ -155,7 +155,7 @@ export default function ChatInput({
                     boxShadow: textareaGlow,
                   }}
                   transition={{ duration: 0.18, ease: 'easeOut' }}
-                  className="flex min-h-[36px] flex-1 items-center rounded-[14px] bg-slate-50/75 px-2.5 py-1.5 dark:bg-surface-800/72"
+                  className="flex min-h-[36px] flex-1 items-center rounded-[14px] border border-[#E5E7EB] bg-[#F3F4F6] px-2.5 py-1.5 dark:border-[#334155] dark:bg-[#0F172A]"
                 >
                   <textarea
                     ref={textareaRef}
@@ -167,7 +167,7 @@ export default function ChatInput({
                     placeholder="Masalan, 1 minutdan keyin eslat..."
                     rows={1}
                     disabled={textareaDisabled}
-                    className="max-h-[72px] min-h-[20px] w-full resize-none border-0 bg-transparent px-0 py-0 text-[14px] leading-5 text-slate-900 placeholder:text-slate-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 dark:text-surface-50 dark:placeholder:text-surface-400"
+                    className="max-h-[72px] min-h-[20px] w-full resize-none border-0 bg-transparent px-0 py-0 text-[14px] leading-5 text-[#111827] placeholder:text-[#9CA3AF] focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 dark:text-[#F8FAFC] dark:placeholder:text-[#94A3B8]"
                   />
                 </motion.div>
 
@@ -182,9 +182,9 @@ export default function ChatInput({
                   className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 ${
                     actionMode === 'send'
                       ? 'bg-primary-500 text-white shadow-[0_10px_20px_-14px_rgba(99,102,241,0.58)]'
-                      : actionMode === 'sending'
-                        ? 'bg-slate-100 text-slate-500 dark:bg-surface-800 dark:text-surface-300'
-                        : 'bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-surface-800 dark:text-surface-300 dark:hover:bg-surface-700'
+                    : actionMode === 'sending'
+                        ? 'border border-[#E5E7EB] bg-[#F3F4F6] text-[#6B7280] dark:border-[#334155] dark:bg-[#0F172A] dark:text-[#CBD5E1]'
+                        : 'border border-[#E5E7EB] bg-[#F3F4F6] text-[#6B7280] hover:bg-[#E5E7EB] dark:border-[#334155] dark:bg-[#0F172A] dark:text-[#CBD5E1] dark:hover:bg-[#1E293B]'
                   }`}
                 >
                   {actionMode === 'sending' ? (

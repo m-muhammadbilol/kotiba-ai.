@@ -10,10 +10,10 @@ const ICONS = {
 };
 
 const BG = {
-  success: 'border-emerald-200 dark:border-emerald-800',
-  error: 'border-red-200 dark:border-red-800',
-  warning: 'border-amber-200 dark:border-amber-800',
-  info: 'border-primary-200 dark:border-primary-800',
+  success: 'border-slate-200 dark:border-[#334155]',
+  error: 'border-slate-200 dark:border-[#334155]',
+  warning: 'border-slate-200 dark:border-[#334155]',
+  info: 'border-slate-200 dark:border-[#334155]',
 };
 
 export default function Toast({ message, type = 'info' }) {
@@ -40,10 +40,10 @@ export default function Toast({ message, type = 'info' }) {
         }`}
       >
         <div
-          className={`flex items-center gap-3 rounded-[24px] border ${BG[type] || BG.info} bg-white/95 px-4 py-3 shadow-[0_22px_48px_-28px_rgba(15,23,42,0.35)] backdrop-blur-xl dark:border-surface-700/80 dark:bg-surface-800/96`}
+          className={`flex items-center gap-3 rounded-[24px] border ${BG[type] || BG.info} bg-[#ffffff] px-4 py-3 shadow-[0_18px_36px_-24px_rgba(15,23,42,0.24)] backdrop-blur-xl dark:bg-[#111827] dark:shadow-[0_18px_36px_-24px_rgba(2,6,23,0.42)]`}
         >
           {ICONS[type] || ICONS.info}
-          <p className="flex-1 text-sm font-medium text-slate-900 dark:text-surface-50">{message}</p>
+          <p className="flex-1 text-sm font-semibold text-[#111827] dark:text-[#F9FAFB]">{message}</p>
         </div>
       </motion.div>
     </div>
