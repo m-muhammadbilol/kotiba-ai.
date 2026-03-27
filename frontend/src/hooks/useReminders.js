@@ -26,7 +26,10 @@ export function useRemindersScheduler() {
       // Trigger if within 30 seconds past due
       if (diff >= 0 && diff <= CHECK_INTERVAL + 5000) {
         markTriggered(reminder.id);
-        showToast(`Eslatma vaqti keldi: ${reminder.title}`, 'info');
+        const shouldSpeakReminder = settings.reminderVoice && settings.ttsEnabled;
+        showToast(`Eslatma vaqti keldi: ${reminder.title}`, 'info', {
+          speak: !shouldSpeakReminder,
+        });
 
         // Send notification
         if (settings.notificationsEnabled) {
@@ -40,7 +43,7 @@ export function useRemindersScheduler() {
         }
 
         // Speak reminder
-        if (settings.reminderVoice && settings.ttsEnabled) {
+        if (shouldSpeakReminder) {
           playText(`Eslatma: ${reminder.title}`);
         }
 

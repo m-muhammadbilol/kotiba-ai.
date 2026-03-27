@@ -153,9 +153,10 @@ export default function ChatPage() {
         data: responseData,
       });
 
-      showToast(responseText, command.toastType || 'success');
+      const shouldSpeakReply = !command.skipVoiceReply && settings.ttsEnabled && settings.autoVoice;
+      showToast(responseText, command.toastType || 'success', { speak: !shouldSpeakReply });
 
-      if (!command.skipVoiceReply && settings.ttsEnabled && settings.autoVoice) {
+      if (shouldSpeakReply) {
         await playText(responseText);
       }
 

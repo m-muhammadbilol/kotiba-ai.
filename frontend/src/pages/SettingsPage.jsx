@@ -89,12 +89,61 @@ export default function SettingsPage() {
   function handleThemeChange(val) {
     updateSetting('theme', val);
     applyTheme(val);
+    const message = val === 'dark'
+      ? 'Qorong‘u rejim yoqildi'
+      : val === 'light'
+        ? 'Yorug‘ rejim yoqildi'
+        : 'Tizim mavzusi tanlandi';
+    showToast(message, 'success');
   }
 
   // Font size change → apply immediately
   function handleFontSizeChange(val) {
     updateSetting('fontSize', val);
     applyFontSize(val);
+    const message = val === 'kichik'
+      ? 'Kichik shrift tanlandi'
+      : val === 'katta'
+        ? 'Katta shrift tanlandi'
+        : 'O‘rta shrift tanlandi';
+    showToast(message, 'success');
+  }
+
+  function handleResponseStyleChange(val) {
+    updateSetting('responseStyle', val);
+    showToast(`Javob uslubi ${val} ga o‘zgardi`, 'success');
+  }
+
+  function handleSettingToggle(key, value) {
+    updateSetting(key, value);
+
+    const messages = {
+      ttsEnabled: value ? 'Ovozli javob yoqildi' : 'Ovozli javob o‘chirildi',
+      autoVoice: value ? 'Avtomatik ovoz yoqildi' : 'Avtomatik ovoz o‘chirildi',
+      reminderVoice: value ? 'Eslatma ovozi yoqildi' : 'Eslatma ovozi o‘chirildi',
+      reminderSound: value ? 'Eslatma signali yoqildi' : 'Eslatma signali o‘chirildi',
+      notificationsEnabled: value ? 'Bildirishnomalar yoqildi' : 'Bildirishnomalar o‘chirildi',
+    };
+
+    showToast(messages[key] || 'Sozlama yangilandi', 'success');
+  }
+
+  function handleTtsModelChange(value) {
+    updateSetting('ttsModel', value);
+    showToast(`Ovoz modeli ${value} ga o‘zgardi`, 'success');
+  }
+
+  function handleProfileFieldBlur(key, value) {
+    const normalized = value.trim();
+    if (!normalized) return;
+
+    const messages = {
+      aiName: `Kotiba ismi ${normalized} bo‘ldi`,
+      userTitle: `Murojaat shakli ${normalized} bo‘ldi`,
+      userName: `Sizni ${normalized} deb chaqiraman`,
+    };
+
+    showToast(messages[key] || 'Sozlama yangilandi', 'success');
   }
 
   async function handleRequestNotification() {
@@ -125,7 +174,7 @@ export default function SettingsPage() {
     }
 
     await playText(`Assalomu alaykum. Men ${settings.aiName || 'Kotiba'}man. Ovoz sinovi muvaffaqiyatli ishladi.`);
-    showToast('TTS sinovi boshlandi', 'success');
+    showToast('TTS sinovi boshlandi', 'success', { speak: false });
   }
 
   async function handleTestReminderSound() {
@@ -190,6 +239,7 @@ export default function SettingsPage() {
               type="text"
               value={settings.aiName}
               onChange={(e) => updateSetting('aiName', e.target.value)}
+              onBlur={(e) => handleProfileFieldBlur('aiName', e.target.value)}
               placeholder="Kotiba"
               className="w-28 text-sm text-right bg-transparent text-primary-500 font-semibold outline-none"
             />
@@ -199,6 +249,7 @@ export default function SettingsPage() {
               type="text"
               value={settings.userTitle}
               onChange={(e) => updateSetting('userTitle', e.target.value)}
+              onBlur={(e) => handleProfileFieldBlur('userTitle', e.target.value)}
               placeholder="Janob/Xonim"
               className="w-28 text-sm text-right bg-transparent text-[var(--text-muted)] font-medium outline-none"
             />
@@ -208,6 +259,7 @@ export default function SettingsPage() {
               type="text"
               value={settings.userName}
               onChange={(e) => updateSetting('userName', e.target.value)}
+              onBlur={(e) => handleProfileFieldBlur('userName', e.target.value)}
               placeholder="Ismingiz"
               className="w-28 text-sm text-right bg-transparent text-[var(--text-muted)] font-medium outline-none"
             />
@@ -226,7 +278,7 @@ export default function SettingsPage() {
               ].map((opt) => (
                 <button
                   key={opt.value}
-                  onClick={() => updateSetting('responseStyle', opt.value)}
+                  onClick={() => handleResponseStyleChange(opt.value)}
                   className={`py-1.5 rounded-lg text-xs font-semibold transition-all border ${
                     settings.responseStyle === opt.value
                       ? 'bg-primary-50 dark:bg-primary-900/30 text-primary-500 border-primary-200 dark:border-primary-700'
@@ -243,15 +295,15 @@ export default function SettingsPage() {
         {/* Voice settings */}
         <Section title="Ovoz sozlamalari">
           <Row icon={settings.ttsEnabled ? Volume2 : VolumeX} label="Ovozli javob (TTS)" description="Kotiba ovozda gapirsin">
-            <Toggle value={settings.ttsEnabled} onChange={(v) => updateSetting('ttsEnabled', v)} />
+            <Toggle value={settings.ttsEnabled} onChange={(v) => handleSettingToggle('ttsEnabled', v)} />
           </Row>
           <Row icon={Volume2} label="Avtomatik ovoz" description="Har javobda o'zi gapirsin">
-            <Toggle value={settings.autoVoice} onChange={(v) => updateSetting('autoVoice', v)} />
+            <Toggle value={settings.autoVoice} onChange={(v) => handleSettingToggle('autoVoice', v)} />
           </Row>
           <Row icon={Volume2} label="Ovoz modeli" description="TTS ovoz turi">
             <select
               value={settings.ttsModel}
-              onChange={(e) => updateSetting('ttsModel', e.target.value)}
+              onChange={(e) => handleTtsModelChange(e.target.value)}
               className="text-sm bg-surface-100 dark:bg-surface-700 text-[var(--text)] rounded-xl px-3 py-1.5 border-none outline-none font-medium"
             >
               <option value="lola">Lola</option>
@@ -259,10 +311,10 @@ export default function SettingsPage() {
             </select>
           </Row>
           <Row icon={Bell} label="Eslatmada ovoz" description="Eslatma vaqtida ovozda aytsin">
-            <Toggle value={settings.reminderVoice} onChange={(v) => updateSetting('reminderVoice', v)} />
+            <Toggle value={settings.reminderVoice} onChange={(v) => handleSettingToggle('reminderVoice', v)} />
           </Row>
           <Row icon={Bell} label="Eslatma signali" description="Bildirishnomada qisqa signal chalinsin">
-            <Toggle value={settings.reminderSound} onChange={(v) => updateSetting('reminderSound', v)} />
+            <Toggle value={settings.reminderSound} onChange={(v) => handleSettingToggle('reminderSound', v)} />
           </Row>
           <Row
             icon={TestTube}
@@ -295,7 +347,7 @@ export default function SettingsPage() {
               value={settings.notificationsEnabled}
               onChange={(v) => {
                 if (v) handleRequestNotification();
-                else updateSetting('notificationsEnabled', false);
+                else handleSettingToggle('notificationsEnabled', false);
               }}
             />
           </Row>

@@ -201,11 +201,38 @@ export const useUIStore = create((set) => ({
   isPlayingAudio: false,
   toast: null,
   toastTimer: null,
+  announcementQueue: [],
   setRecording: (v) => set({ isRecording: v }),
   setProcessingSTT: (v) => set({ isProcessingSTT: v }),
   setProcessingAI: (v) => set({ isProcessingAI: v }),
   setPlayingAudio: (v) => set({ isPlayingAudio: v }),
-  showToast: (message, type = 'info') => {
+  enqueueAnnouncement: (message) =>
+    set((state) => {
+      const text = String(message || '').trim();
+      if (!text) return {};
+
+      const lastAnnouncement = state.announcementQueue[state.announcementQueue.length - 1];
+      if (lastAnnouncement?.message === text) {
+        return {};
+      }
+
+      return {
+        announcementQueue: [
+          ...state.announcementQueue,
+          { id: createId('announcement'), message: text },
+        ],
+      };
+    }),
+  dequeueAnnouncement: () =>
+    set((state) => ({
+      announcementQueue: state.announcementQueue.slice(1),
+    })),
+  clearAnnouncements: () => set({ announcementQueue: [] }),
+  showToast: (message, type = 'info', options = {}) => {
+    if (options.speak !== false) {
+      useUIStore.getState().enqueueAnnouncement(options.speech || message);
+    }
+
     set((state) => {
       if (state.toastTimer) {
         clearTimeout(state.toastTimer);

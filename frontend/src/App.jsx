@@ -10,6 +10,7 @@ import RemindersPage from './pages/RemindersPage.jsx';
 import MoneyPage from './pages/MoneyPage.jsx';
 import SettingsPage from './pages/SettingsPage.jsx';
 import Toast from './components/shared/Toast.jsx';
+import UiVoiceAnnouncer from './components/shared/UiVoiceAnnouncer.jsx';
 import { useUIStore } from './store/index.js';
 
 function ReminderScheduler() {
@@ -47,6 +48,7 @@ export default function App() {
     <BrowserRouter future={{ v7_relativeSplatPath: true }}>
       <ThemeManager />
       <ReminderScheduler />
+      <UiVoiceAnnouncer />
       {toast && <Toast message={toast.message} type={toast.type} key={toast.id} />}
       <Routes>
         <Route path="/" element={<Layout />}>

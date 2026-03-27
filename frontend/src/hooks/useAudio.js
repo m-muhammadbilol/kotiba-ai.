@@ -81,7 +81,7 @@ export function useAudio() {
   );
 
   const playText = useCallback(
-    async (text, model) => {
+    async (text, model, options = {}) => {
       if (!settings.ttsEnabled) return;
       if (!text || text.trim().length === 0) return;
 
@@ -132,7 +132,9 @@ export function useAudio() {
       }
 
       setPlayingAudio(false);
-      showToast('Ovozli javobni ijro etib bo\'lmadi', 'warning');
+      if (!options.silentFailure) {
+        showToast('Ovozli javobni ijro etib bo\'lmadi', 'warning', { speak: false });
+      }
     },
     [
       settings.ttsEnabled,
